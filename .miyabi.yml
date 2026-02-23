@@ -1,0 +1,80 @@
+# Miyabi Framework Configuration
+# https://github.com/ShunsukeHayashi/Autonomous-Operations
+
+version: "0.18"
+project:
+  name: md2Lark
+  description: Markdown to Lark (Feishu) document converter
+  repository: PLark-droid/md2Lark
+
+# Agent settings
+agents:
+  coordinator:
+    enabled: true
+    maxParallelTasks: 3
+  codegen:
+    enabled: true
+    model: claude-sonnet-4-20250514
+    language: typescript
+    strict: true
+  review:
+    enabled: true
+    qualityThreshold: 80
+    autoApprove: false
+  issue:
+    enabled: true
+    autoLabel: true
+    autoAssign: true
+  pr:
+    enabled: true
+    conventionalCommits: true
+    draftByDefault: true
+  deploy:
+    enabled: true
+    autoDeployOnMerge: false
+  test:
+    enabled: true
+    coverageThreshold: 80
+
+# Label configuration
+labels:
+  system: shikigaku
+  totalCount: 53
+
+# TODO scanner
+todos:
+  enabled: true
+  patterns:
+    - "TODO"
+    - "FIXME"
+    - "HACK"
+    - "XXX"
+    - "NOTE"
+  exclude:
+    - "node_modules/**"
+    - "dist/**"
+    - "coverage/**"
+    - "*.min.js"
+    - "*.bundle.js"
+
+# Pipeline presets
+pipelines:
+  default: full-cycle
+  presets:
+    full-cycle:
+      steps:
+        - agent-run
+        - review
+        - test
+        - deploy
+    quality-gate:
+      steps:
+        - review
+        - test
+
+# Workflow settings
+workflow:
+  autoAssignAgent: true
+  stateTransitions: true
+  kpiReporting: true
+  weeklyReport: true
