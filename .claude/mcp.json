@@ -50,12 +50,17 @@
       "description": "Context Engineering - AI-powered context analysis, optimization, and semantic search"
     },
     "miyabi": {
-      "command": "node",
+      "command": "npx",
       "args": [
-        ".claude/mcp-servers/miyabi-integration.js"
+        "-y",
+        "miyabi-mcp-bundle"
       ],
+      "env": {
+        "MIYABI_REPO_PATH": ".",
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      },
       "disabled": false,
-      "description": "Miyabi CLI統合 - プロジェクト作成、Agent実行、自動化機能"
+      "description": "Miyabi MCP Bundle - 172 tools for autonomous development"
     }
   }
 }
