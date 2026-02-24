@@ -186,8 +186,8 @@ jobs:
           draft: true
           labels: |
             🤖 agent:generated
-            automated
-            needs-review
+            🤖 agent:codegen
+            👀 state:reviewing
 
       - name: Upload execution logs
         if: always()
