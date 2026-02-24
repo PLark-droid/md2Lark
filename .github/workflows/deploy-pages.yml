@@ -81,7 +81,7 @@ jobs:
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@d6db901d842f5ab68d8b727ac06d3fd60b0abb82 # v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
 
       - name: Summary
         run: |

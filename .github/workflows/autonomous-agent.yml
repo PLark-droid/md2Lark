@@ -135,7 +135,7 @@ jobs:
 
       - name: Create Pull Request
         if: steps.check_changes.outputs.has_changes == 'true'
-        uses: peter-evans/create-pull-request@c0f553f219c499f7b2eacd3a31b44ccd8cb5d5e3 # v8
+        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: agent/issue-${{ needs.check-trigger.outputs.issue_number }}
