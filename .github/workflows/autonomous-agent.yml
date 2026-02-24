@@ -13,8 +13,8 @@ on:
         type: number
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.issue.number || github.event.inputs.issue_number || github.run_id }}
+  cancel-in-progress: false
 
 env:
   NODE_VERSION: '20'
@@ -213,7 +213,7 @@ jobs:
 
             **Status**: Success
             **Duration**: ${{ job.duration }}
-            **Branch**: \`agent/issue-${{ needs.check-trigger.outputs.issue_number }}-${{ github.run_number }}\`
+            **Branch**: \`agent/issue-${{ needs.check-trigger.outputs.issue_number }}\`
 
             ### Actions Taken
 

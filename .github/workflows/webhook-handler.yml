@@ -23,8 +23,8 @@ on:
     types: [completed]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.issue.number || github.event.pull_request.number || github.event.workflow_run.id || github.run_id }}
+  cancel-in-progress: false
 
 permissions:
   issues: write
@@ -171,7 +171,7 @@ jobs:
           echo "Run ID: ${{ github.event.workflow_run.id }}"
 
           # Escalate to Guardian for critical failures
-          if echo "${{ github.event.workflow_run.name }}" | grep -qE "(agent-runner|economic-circuit-breaker)"; then
+          if echo "${{ github.event.workflow_run.name }}" | grep -qiE "(Autonomous Agent Execution|Economic Circuit Breaker)"; then
             echo "🚨 Critical workflow failed, escalating to Guardian"
 
             gh issue create \
