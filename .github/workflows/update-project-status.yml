@@ -17,80 +17,94 @@ jobs:
     timeout-minutes: 15
     name: Update project item status
     steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: '20'
-
-      - name: Install Dependencies
-        run: npm ci
-
       - name: Update Project Status
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_PROJECT_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
           EVENT_ACTION: ${{ github.event.action }}
+          PROJECT_NUMBER: ${{ vars.GITHUB_PROJECT_NUMBER || '1' }}
         run: |
-          cat > update-status.ts << 'EOF'
-          import { ProjectsV2Client } from './agents/github/projects-v2.js';
+          # Determine target status based on event action
+          case "$EVENT_ACTION" in
+            opened)    STATUS="Todo" ;;
+            closed)    STATUS="Done" ;;
+            reopened)  STATUS="In Progress" ;;
+            *)         echo "No status mapping for action: $EVENT_ACTION"; exit 0 ;;
+          esac
 
-          async function main() {
-            const token = process.env.GITHUB_TOKEN!;
-            const issueNumber = parseInt(process.env.ISSUE_NUMBER!);
-            const action = process.env.EVENT_ACTION!;
+          echo "Updating issue/PR #$ISSUE_NUMBER status to: $STATUS"
 
-            const [owner, repo] = process.env.GITHUB_REPOSITORY!.split('/');
+          OWNER=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f1)
+          REPO=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f2)
 
-            const client = new ProjectsV2Client(token, {
-              owner,
-              repo,
-              projectNumber: 1, // Adjust as needed
-            });
-
-            await client.initialize();
-
-            // Get issue node ID
-            const issueNodeId = await client.getIssueNodeId(issueNumber);
-
-            // Add to project if not already added
-            let itemId: string;
-            try {
-              itemId = await client.addIssueToProject(issueNodeId);
-              console.log(`Added issue #${issueNumber} to project`);
-            } catch (error: any) {
-              if (error.message.includes('already exists')) {
-                console.log(`Issue #${issueNumber} already in project`);
-                // Get existing item ID (simplified - in production, fetch from GraphQL)
-                return;
+          # Find the project item for this issue/PR
+          ITEM_ID=$(gh api graphql -f query='
+            query($owner: String!, $repo: String!, $number: Int!) {
+              repository(owner: $owner, name: $repo) {
+                issueOrPullRequest(number: $number) {
+                  ... on Issue {
+                    projectItems(first: 10) {
+                      nodes { id }
+                    }
+                  }
+                  ... on PullRequest {
+                    projectItems(first: 10) {
+                      nodes { id }
+                    }
+                  }
+                }
               }
-              throw error;
-            }
+            }' -f owner="$OWNER" -f repo="$REPO" -F number="$ISSUE_NUMBER" \
+            --jq '.data.repository.issueOrPullRequest.projectItems.nodes[0].id' 2>/dev/null || echo "")
 
-            // Update status based on action
-            let status: string;
-            switch (action) {
-              case 'opened':
-                status = 'Todo';
-                break;
-              case 'closed':
-                status = 'Done';
-                break;
-              case 'reopened':
-                status = 'In Progress';
-                break;
-              default:
-                console.log(`Unknown action: ${action}`);
-                return;
-            }
+          if [ -z "$ITEM_ID" ] || [ "$ITEM_ID" = "null" ]; then
+            echo "Item #$ISSUE_NUMBER not found in any project. Skipping."
+            exit 0
+          fi
 
-            await client.updateStatus(itemId, status);
-            console.log(`Updated issue #${issueNumber} status to: ${status}`);
-          }
+          echo "Found project item: $ITEM_ID"
 
-          main().catch(console.error);
-          EOF
+          # Get project ID and Status field info
+          PROJECT_DATA=$(gh api graphql -f query='
+            query($owner: String!, $number: Int!) {
+              user(login: $owner) {
+                projectV2(number: $number) {
+                  id
+                  field(name: "Status") {
+                    ... on ProjectV2SingleSelectField {
+                      id
+                      options { id name }
+                    }
+                  }
+                }
+              }
+            }' -f owner="$OWNER" -F number="$PROJECT_NUMBER" 2>/dev/null || echo "")
 
-          npx tsx update-status.ts
+          if [ -z "$PROJECT_DATA" ]; then
+            echo "Could not fetch project data. Skipping."
+            exit 0
+          fi
+
+          PROJECT_ID=$(echo "$PROJECT_DATA" | jq -r '.data.user.projectV2.id // empty')
+          FIELD_ID=$(echo "$PROJECT_DATA" | jq -r '.data.user.projectV2.field.id // empty')
+          OPTION_ID=$(echo "$PROJECT_DATA" | jq -r --arg status "$STATUS" '.data.user.projectV2.field.options[] | select(.name == $status) | .id // empty')
+
+          if [ -z "$PROJECT_ID" ] || [ -z "$FIELD_ID" ] || [ -z "$OPTION_ID" ]; then
+            echo "Could not resolve project/field/option IDs (project=$PROJECT_ID, field=$FIELD_ID, option=$OPTION_ID). Skipping."
+            exit 0
+          fi
+
+          # Update the status field
+          gh api graphql -f query='
+            mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+              updateProjectV2ItemFieldValue(input: {
+                projectId: $projectId
+                itemId: $itemId
+                fieldId: $fieldId
+                value: { singleSelectOptionId: $optionId }
+              }) {
+                projectV2Item { id }
+              }
+            }' -f projectId="$PROJECT_ID" -f itemId="$ITEM_ID" -f fieldId="$FIELD_ID" -f optionId="$OPTION_ID"
+
+          echo "Updated #$ISSUE_NUMBER status to: $STATUS"

@@ -40,7 +40,7 @@ jobs:
           YQ_VERSION="v4.44.1"
           YQ_BINARY="yq_linux_amd64"
           YQ_URL="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/${YQ_BINARY}"
-          YQ_SHA256="e3cf306602b0c6764d71201b940f6fdfde9bc2618fe3b6c14c14e8f4311d0e6d"
+          YQ_SHA256="6dc2d0cd4e0caca5aeffd0d784a48263591080e4a0895abe69f3a76eb50d1ba3"
 
           wget -qO /tmp/yq "$YQ_URL"
           echo "${YQ_SHA256}  /tmp/yq" | sha256sum -c -
