@@ -6,16 +6,21 @@ on:
   pull_request:
     types: [opened, closed, reopened]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   sync-to-project:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       issues: read
       pull-requests: read
 
     steps:
       - name: Sync to GitHub Projects
-        uses: actions/add-to-project@v0.5.0
+        uses: actions/add-to-project@280af8ae1f83a494cfad2cb10f02f6d13539bfc3 # v0.5.0
         with:
           project-url: https://github.com/orgs/${{ github.repository_owner }}/projects/1
           github-token: ${{ secrets.GITHUB_TOKEN }}

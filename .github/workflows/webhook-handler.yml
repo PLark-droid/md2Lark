@@ -15,8 +15,17 @@ on:
   push:
     branches: [main]
   workflow_run:
-    workflows: ["*"]
+    workflows:
+      - "🔴 Economic Circuit Breaker"
+      - "Deploy GitHub Pages"
+      - "🔄 State Machine"
+      - "📋 Issue Opened - Auto Label"
+      - "Autonomous Agent Execution"
     types: [completed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.issue.number || github.event.pull_request.number || github.event.workflow_run.id || github.run_id }}
+  cancel-in-progress: false
 
 permissions:
   issues: write
@@ -27,10 +36,11 @@ permissions:
 jobs:
   route-event:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     name: Route Event to Appropriate Handler
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Log Event
         run: |
@@ -52,7 +62,7 @@ jobs:
           # Check if Issue has agent-related labels
           LABELS="${{ toJson(github.event.issue.labels.*.name) }}"
 
-          if echo "$LABELS" | grep -q "🤖agent"; then
+          if echo "$LABELS" | grep -q "🤖 agent:"; then
             echo "✅ Agent label detected, will auto-process"
             # TODO: Trigger IssueAgent workflow when implemented
           else
@@ -63,7 +73,9 @@ jobs:
         if: |
           github.event_name == 'issues' &&
           github.event.action == 'labeled' &&
-          github.event.label.name == '🤖agent-execute'
+          github.event.label.name == '🤖 agent:execute'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "🚀 AGENT EXECUTION TRIGGERED"
           echo "Issue: #${{ github.event.issue.number }}"
@@ -91,9 +103,10 @@ jobs:
 
       - name: Route to Agent - Comment Command
         if: github.event_name == 'issue_comment' && github.event.action == 'created'
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          COMMENT_BODY="${{ github.event.comment.body }}"
-
           if echo "$COMMENT_BODY" | grep -q "^/agent"; then
             echo "💬 Agent command detected in comment"
             echo "Command: $COMMENT_BODY"
@@ -150,6 +163,8 @@ jobs:
         if: |
           github.event_name == 'workflow_run' &&
           github.event.workflow_run.conclusion == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "🚨 WORKFLOW FAILURE DETECTED"
           echo "Workflow: ${{ github.event.workflow_run.name }}"
@@ -157,7 +172,7 @@ jobs:
           echo "Run ID: ${{ github.event.workflow_run.id }}"
 
           # Escalate to Guardian for critical failures
-          if echo "${{ github.event.workflow_run.name }}" | grep -qE "(agent-runner|economic-circuit-breaker)"; then
+          if echo "${{ github.event.workflow_run.name }}" | grep -qiE "(Autonomous Agent Execution|Economic Circuit Breaker)"; then
             echo "🚨 Critical workflow failed, escalating to Guardian"
 
             gh issue create \

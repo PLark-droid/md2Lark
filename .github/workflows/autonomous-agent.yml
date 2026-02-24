@@ -12,6 +12,10 @@ on:
         required: true
         type: number
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.issue.number || github.event.inputs.issue_number || github.run_id }}
+  cancel-in-progress: false
+
 env:
   NODE_VERSION: '20'
 
@@ -20,12 +24,15 @@ jobs:
   check-trigger:
     name: Check Agent Trigger
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     outputs:
       should_execute: ${{ steps.check.outputs.should_execute }}
       issue_number: ${{ steps.check.outputs.issue_number }}
     steps:
       - name: Check trigger conditions
         id: check
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
           SHOULD_EXECUTE="false"
           ISSUE_NUMBER=""
@@ -37,20 +44,19 @@ jobs:
             echo "Manual trigger for issue #${ISSUE_NUMBER}"
           fi
 
-          # Check if issue has agent-execute label
+          # Check if issue has 🤖 agent:execute label
           if [ "${{ github.event_name }}" = "issues" ]; then
             LABELS='${{ toJson(github.event.issue.labels.*.name) }}'
-            if echo "$LABELS" | grep -q "🤖agent-execute"; then
+            if echo "$LABELS" | grep -q "🤖 agent:execute"; then
               SHOULD_EXECUTE="true"
               ISSUE_NUMBER="${{ github.event.issue.number }}"
-              echo "Issue #${ISSUE_NUMBER} has agent-execute label"
+              echo "Issue #${ISSUE_NUMBER} has 🤖 agent:execute label"
             fi
           fi
 
           # Check if comment contains /agent command or @miyabi mention
           if [ "${{ github.event_name }}" = "issue_comment" ]; then
-            COMMENT="${{ github.event.comment.body }}"
-            if echo "$COMMENT" | grep -Eq "^/agent|@miyabi"; then
+            if echo "$COMMENT_BODY" | grep -Eq "^/agent|@miyabi"; then
               SHOULD_EXECUTE="true"
               ISSUE_NUMBER="${{ github.event.issue.number }}"
               echo "Comment triggered agent execution for issue #${ISSUE_NUMBER}"
@@ -64,6 +70,7 @@ jobs:
   execute-agents:
     name: Execute Autonomous Agents
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: check-trigger
     if: needs.check-trigger.outputs.should_execute == 'true'
 
@@ -74,12 +81,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -126,35 +133,12 @@ jobs:
             echo "ℹ️ No code changes"
           fi
 
-      - name: Commit generated code
-        if: steps.check_changes.outputs.has_changes == 'true'
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-
-          BRANCH_NAME="agent/issue-${{ needs.check-trigger.outputs.issue_number }}-$(date +%s)"
-          git checkout -b "$BRANCH_NAME"
-
-          git add .
-          git commit -m "$(cat <<'EOF'
-          feat: autonomous agent implementation for issue #${{ needs.check-trigger.outputs.issue_number }}
-
-          🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-          Co-Authored-By: Claude <noreply@anthropic.com>
-          EOF
-          )"
-
-          git push origin "$BRANCH_NAME"
-
-          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
-
       - name: Create Pull Request
         if: steps.check_changes.outputs.has_changes == 'true'
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@c0f553f219c499f7b2eacd3a31b44ccd8cb5d5e3 # v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: agent/issue-${{ needs.check-trigger.outputs.issue_number }}-${{ github.run_number }}
+          branch: agent/issue-${{ needs.check-trigger.outputs.issue_number }}
           title: "feat: autonomous agent implementation for issue #${{ needs.check-trigger.outputs.issue_number }}"
           body: |
             ## 🤖 Autonomous Agent Execution Report
@@ -201,13 +185,13 @@ jobs:
             Co-Authored-By: Claude <noreply@anthropic.com>
           draft: true
           labels: |
-            🤖agent-generated
-            automated
-            needs-review
+            🤖 agent:generated
+            🤖 agent:codegen
+            👀 state:reviewing
 
       - name: Upload execution logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: agent-execution-logs-${{ needs.check-trigger.outputs.issue_number }}
           path: |
@@ -217,7 +201,7 @@ jobs:
 
       - name: Comment on Issue (Success)
         if: success() && steps.check_changes.outputs.has_changes == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -229,7 +213,7 @@ jobs:
 
             **Status**: Success
             **Duration**: ${{ job.duration }}
-            **Branch**: \`agent/issue-${{ needs.check-trigger.outputs.issue_number }}-${{ github.run_number }}\`
+            **Branch**: \`agent/issue-${{ needs.check-trigger.outputs.issue_number }}\`
 
             ### Actions Taken
 
@@ -254,7 +238,7 @@ jobs:
 
       - name: Comment on Issue (Failure)
         if: failure()
-        uses: actions/github-script@v7
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -284,7 +268,7 @@ jobs:
 
       - name: Add escalation label on failure
         if: failure()
-        uses: actions/github-script@v7
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -292,5 +276,5 @@ jobs:
               issue_number: ${{ needs.check-trigger.outputs.issue_number }},
               owner: context.repo.owner,
               repo: context.repo.repo,
-              labels: ['🚨escalated', '❌agent-failed']
+              labels: ['🚨 escalated', '🤖 agent:failed']
             })

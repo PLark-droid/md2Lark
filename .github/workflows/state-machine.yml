@@ -1,4 +1,4 @@
-name: 🔄 State Machine Automation
+name: 🔄 State Machine
 
 # Automatically manage Issue/PR state based on labels
 # Constitutional requirement: "Labels are the OS's state management"
@@ -11,6 +11,10 @@ on:
   issue_comment:
     types: [created]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
 permissions:
   issues: write
   pull-requests: write
@@ -22,15 +26,16 @@ jobs:
 
   initial-triage:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: github.event_name == 'issues' && github.event.action == 'opened'
     name: Initial Triage
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -50,7 +55,7 @@ jobs:
             --reason="New issue created, awaiting triage"
 
       - name: Auto-assign priority
-        uses: actions/github-script@v7
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
         with:
           script: |
             const labels = context.payload.issue.labels.map(l => l.name);
@@ -61,7 +66,7 @@ jobs:
             const body = (context.payload.issue.body || '').toLowerCase();
 
             if (title.includes('critical') || body.includes('production down') || body.includes('security')) {
-              priority = '🔥 priority:P0-Critical';
+              priority = '📊 priority:P0-Critical';
             } else if (title.includes('urgent') || title.includes('bug') || body.includes('broken')) {
               priority = '⚠️ priority:P1-High';
             } else if (title.includes('enhancement') || title.includes('feature')) {
@@ -81,18 +86,19 @@ jobs:
 
   coordinator-assignment:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: |
       github.event_name == 'issues' &&
       github.event.action == 'labeled' &&
-      contains(github.event.label.name, 'agent:coordinator')
+      contains(github.event.label.name, '🤖 agent:coordinator')
     name: Coordinator Assignment
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -117,20 +123,21 @@ jobs:
 
   specialist-assignment:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: |
       github.event_name == 'issues' &&
       github.event.action == 'labeled' &&
-      (contains(github.event.label.name, 'agent:codegen') ||
-       contains(github.event.label.name, 'agent:issue') ||
-       contains(github.event.label.name, 'agent:pr'))
+      (contains(github.event.label.name, '🤖 agent:codegen') ||
+       contains(github.event.label.name, '🤖 agent:issue') ||
+       contains(github.event.label.name, '🤖 agent:pr'))
     name: Specialist Assignment
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -155,15 +162,16 @@ jobs:
 
   pr-created:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: github.event_name == 'pull_request' && github.event.action == 'opened'
     name: PR Created - Start Review
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -173,7 +181,7 @@ jobs:
 
       - name: Find linked issue
         id: find-issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
         with:
           script: |
             const body = context.payload.pull_request.body || '';
@@ -197,7 +205,7 @@ jobs:
             --reason="PR #${{ github.event.pull_request.number }} created"
 
       - name: Add review agent label to PR
-        uses: actions/github-script@v7
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
         with:
           script: |
             await github.rest.issues.addLabels({
@@ -213,6 +221,7 @@ jobs:
 
   pr-merged:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: |
       github.event_name == 'pull_request' &&
       github.event.action == 'closed' &&
@@ -221,10 +230,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -234,7 +243,7 @@ jobs:
 
       - name: Find linked issue
         id: find-issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
         with:
           script: |
             const body = context.payload.pull_request.body || '';
@@ -263,6 +272,7 @@ jobs:
 
   blocked-escalation:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     if: |
       github.event_name == 'issues' &&
       github.event.action == 'labeled' &&
@@ -271,7 +281,7 @@ jobs:
 
     steps:
       - name: Create escalation comment
-        uses: actions/github-script@v7
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
         with:
           script: |
             await github.rest.issues.createComment({
@@ -295,7 +305,7 @@ jobs:
             });
 
       - name: Add severity label
-        uses: actions/github-script@v7
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
         with:
           script: |
             await github.rest.issues.addLabels({
