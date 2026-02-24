@@ -37,7 +37,7 @@ jobs:
           script: |
             const issue = context.payload.issue;
             const owner = context.repo.owner;
-            const repo = context.repo.name;
+            const repo = context.repo.repo;
 
             // Remove any existing state: labels
             const currentLabels = issue.labels.map(l => l.name);
@@ -81,7 +81,7 @@ jobs:
 
             await github.rest.issues.addLabels({
               owner: context.repo.owner,
-              repo: context.repo.name,
+              repo: context.repo.repo,
               issue_number: context.payload.issue.number,
               labels: [priority]
             });
@@ -106,7 +106,7 @@ jobs:
           script: |
             const issue = context.payload.issue;
             const owner = context.repo.owner;
-            const repo = context.repo.name;
+            const repo = context.repo.repo;
 
             for (const label of issue.labels.map(l => l.name)) {
               if (label.includes('state:')) {
@@ -148,7 +148,7 @@ jobs:
           script: |
             const issue = context.payload.issue;
             const owner = context.repo.owner;
-            const repo = context.repo.name;
+            const repo = context.repo.repo;
 
             for (const label of issue.labels.map(l => l.name)) {
               if (label.includes('state:')) {
@@ -189,7 +189,7 @@ jobs:
             if (match) {
               const issueNumber = parseInt(match[1], 10);
               const owner = context.repo.owner;
-              const repo = context.repo.name;
+              const repo = context.repo.repo;
 
               // Get current issue labels
               const { data: issue } = await github.rest.issues.get({
@@ -222,7 +222,7 @@ jobs:
           script: |
             await github.rest.issues.addLabels({
               owner: context.repo.owner,
-              repo: context.repo.name,
+              repo: context.repo.repo,
               issue_number: context.payload.pull_request.number,
               labels: ['agent:review', 'state:reviewing']
             });
@@ -251,7 +251,7 @@ jobs:
             if (match) {
               const issueNumber = parseInt(match[1], 10);
               const owner = context.repo.owner;
-              const repo = context.repo.name;
+              const repo = context.repo.repo;
 
               const { data: issue } = await github.rest.issues.get({
                 owner, repo,
@@ -297,7 +297,7 @@ jobs:
           script: |
             await github.rest.issues.createComment({
               owner: context.repo.owner,
-              repo: context.repo.name,
+              repo: context.repo.repo,
               issue_number: context.payload.issue.number,
               body: `**BLOCKED - Guardian Escalation**
 
@@ -321,7 +321,7 @@ jobs:
           script: |
             await github.rest.issues.addLabels({
               owner: context.repo.owner,
-              repo: context.repo.name,
+              repo: context.repo.repo,
               issue_number: context.payload.issue.number,
               labels: ['priority:P1-High']
             });
