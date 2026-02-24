@@ -19,8 +19,39 @@ jobs:
       pull-requests: read
 
     steps:
+      - name: Check if project exists
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          PROJECT_NUMBER="${{ vars.GITHUB_PROJECT_NUMBER || '1' }}"
+          OWNER="${{ github.repository_owner }}"
+
+          # Try user project first, then org
+          for OWNER_TYPE in user organization; do
+            RESULT=$(gh api graphql -f query="
+              query(\$login: String!, \$number: Int!) {
+                ${OWNER_TYPE}(login: \$login) {
+                  projectV2(number: \$number) { id }
+                }
+              }" -f login="$OWNER" -F number="$PROJECT_NUMBER" 2>/dev/null || echo "")
+
+            PROJECT_ID=$(echo "$RESULT" | jq -r ".data.${OWNER_TYPE}.projectV2.id // empty" 2>/dev/null || echo "")
+            if [ -n "$PROJECT_ID" ]; then
+              echo "Found project: $PROJECT_ID (${OWNER_TYPE})"
+              echo "exists=true" >> "$GITHUB_OUTPUT"
+              echo "owner_type=$OWNER_TYPE" >> "$GITHUB_OUTPUT"
+              echo "project_number=$PROJECT_NUMBER" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+
+          echo "No Projects V2 found for $OWNER. Skipping sync."
+          echo "exists=false" >> "$GITHUB_OUTPUT"
+
       - name: Sync to GitHub Projects
+        if: steps.check.outputs.exists == 'true'
         uses: actions/add-to-project@31b3f3ccdc584546fc445612dec3f38ff5edb41c # v0.5.0
         with:
-          project-url: https://github.com/users/${{ github.repository_owner }}/projects/1
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          project-url: https://github.com/${{ steps.check.outputs.owner_type == 'organization' && 'orgs' || 'users' }}/${{ github.repository_owner }}/projects/${{ steps.check.outputs.project_number }}
+          github-token: ${{ secrets.GH_PROJECT_TOKEN || secrets.GITHUB_TOKEN }}
