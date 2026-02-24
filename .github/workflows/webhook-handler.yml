@@ -20,6 +20,7 @@ on:
       - "Deploy GitHub Pages"
       - "🔄 State Machine"
       - "📋 Issue Opened - Auto Label"
+      - "Autonomous Agent Execution"
     types: [completed]
 
 concurrency:
