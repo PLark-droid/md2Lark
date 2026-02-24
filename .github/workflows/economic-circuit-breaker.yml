@@ -17,23 +17,34 @@ permissions:
   actions: write
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   monitor-cloud-costs:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
 
       - name: Install yq for YAML parsing
         run: |
-          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          YQ_VERSION="v4.44.1"
+          YQ_BINARY="yq_linux_amd64"
+          YQ_URL="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/${YQ_BINARY}"
+          YQ_SHA256="e3cf306602b0c6764d71201b940f6fdfde9bc2618fe3b6c14c14e8f4311d0e6d"
+
+          wget -qO /tmp/yq "$YQ_URL"
+          echo "${YQ_SHA256}  /tmp/yq" | sha256sum -c -
+          sudo mv /tmp/yq /usr/local/bin/yq
           sudo chmod +x /usr/local/bin/yq
 
       - name: Load BUDGET.yml configuration
@@ -159,6 +170,8 @@ jobs:
           echo "total_cost=$TOTAL_COST" >> $GITHUB_OUTPUT
           echo "consumption_rate=$CONSUMPTION_RATE" >> $GITHUB_OUTPUT
           echo "consumption_percent=$CONSUMPTION_PERCENT" >> $GITHUB_OUTPUT
+          echo "warning_amount=$WARNING_AMOUNT" >> $GITHUB_OUTPUT
+          echo "emergency_amount=$EMERGENCY_AMOUNT" >> $GITHUB_OUTPUT
 
           echo ""
           echo "═══════════════════════════════════════"
@@ -255,12 +268,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          DISABLED_WORKFLOWS=$(yq '.emergency_actions.disable_workflows[]' BUDGET.yml | sed 's/^/- ❌ /')
+          REENABLE_COMMANDS=$(yq '.emergency_actions.disable_workflows[]' BUDGET.yml | sed "s#^#gh api --method PUT /repos/${{ github.repository }}/actions/workflows/#; s#$#/enable#")
+
           # Guardianへの通知Issue作成
           gh issue create \
             --title "🔴🚨 ECONOMIC CIRCUIT BREAKER ACTIVATED - Guardian Intervention Required" \
             --label "🔥Sev.1-Critical,🤖AI-システム,💰経済-緊急停止" \
             --assignee "${{ github.repository_owner }}" \
-            --body "$(cat <<'EOF'
+            --body "$(cat <<EOF
           ## 🚨 ECONOMIC CIRCUIT BREAKER ACTIVATED
 
           **AGENTS.md v5.0 - Economic Governance Protocol** に基づき、経済的サーキットブレーカーが作動しました。
@@ -270,21 +286,21 @@ jobs:
           - **Total Cost**: \$${{ steps.calculate.outputs.total_cost }} USD
           - **Monthly Budget**: \$${{ steps.budget.outputs.monthly_budget }} USD
           - **Consumption Rate**: ${{ steps.calculate.outputs.consumption_percent }}%
-          - **Emergency Threshold**: ${{ steps.budget.outputs.emergency_threshold }} (150%)
+          - **Emergency Threshold**: \$${{ steps.calculate.outputs.emergency_amount }} USD (${{ steps.budget.outputs.emergency_threshold }})
 
           ### 💰 Cost Breakdown
 
           | Service | Cost (USD) | Budget (USD) |
           |---------|-----------|--------------|
-          | Anthropic API | \$${{ steps.anthropic_cost.outputs.anthropic_cost }} | \$400 |
-          | Firebase | \$${{ steps.firebase_cost.outputs.firebase_cost }} | \$100 |
+          | Anthropic API | \$${{ steps.anthropic_cost.outputs.anthropic_cost }} | \$${{ steps.budget.outputs.monthly_budget }} (shared budget) |
+          | Firebase | \$${{ steps.firebase_cost.outputs.firebase_cost }} | \$${{ steps.budget.outputs.monthly_budget }} (shared budget) |
           | **Total** | **\$${{ steps.calculate.outputs.total_cost }}** | **\$${{ steps.budget.outputs.monthly_budget }}** |
 
           ### 🛑 Actions Taken
 
           The following workflows have been **automatically disabled**:
 
-          $(yq '.emergency_actions.disable_workflows[]' BUDGET.yml | sed 's/^/- ❌ /')
+          $DISABLED_WORKFLOWS
 
           ### 🤖 Guardian Intervention Required
 
@@ -315,9 +331,7 @@ jobs:
 
           \`\`\`bash
           # 各ワークフローを手動で再有効化
-          gh api --method PUT /repos/${{ github.repository }}/actions/workflows/agent-runner.yml/enable
-          gh api --method PUT /repos/${{ github.repository }}/actions/workflows/continuous-improvement.yml/enable
-          gh api --method PUT /repos/${{ github.repository }}/actions/workflows/agent-onboarding.yml/enable
+          $REENABLE_COMMANDS
           \`\`\`
 
           ### 📈 Historical Cost Data
@@ -360,8 +374,8 @@ jobs:
 
           - **Consumption Rate**: ${{ steps.calculate.outputs.consumption_percent }}%
           - **Total Cost**: \$${{ steps.calculate.outputs.total_cost }} USD / \$${{ steps.budget.outputs.monthly_budget }} USD
-          - **Warning Threshold**: ${{ steps.budget.outputs.warning_threshold }} (80%)
-          - **Emergency Threshold**: ${{ steps.budget.outputs.emergency_threshold }} (150%)
+          - **Warning Threshold**: \$${{ steps.calculate.outputs.warning_amount }} USD (${{ steps.budget.outputs.warning_threshold }})
+          - **Emergency Threshold**: \$${{ steps.calculate.outputs.emergency_amount }} USD (${{ steps.budget.outputs.emergency_threshold }})
 
           ### 🎯 Recommended Actions
 

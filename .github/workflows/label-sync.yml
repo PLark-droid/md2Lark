@@ -11,20 +11,25 @@ on:
       - '.github/labels.yml'
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   issues: write
 
 jobs:
   sync-labels:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     name: Sync Labels
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Sync labels
-        uses: micnncim/action-label-syncer@v1
+        uses: micnncim/action-label-syncer@87fcb9c6ad8f5f10ebd7f6cd65acfa4434d639e1 # v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
