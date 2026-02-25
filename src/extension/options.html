@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>md2Lark Settings</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>md2Lark Settings</h1>
+      <span class="subtitle">Customize your conversion preferences</span>
+    </header>
+
+    <section class="settings-group">
+      <h2>Markdown</h2>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <label for="gfm-enabled">GitHub Flavored Markdown</label>
+          <p class="setting-desc">Enable tables, strikethrough, task lists, and autolinks.</p>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="gfm-enabled" checked />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <label for="default-code-lang">Default Code Language</label>
+          <p class="setting-desc">Applied to code blocks without a specified language.</p>
+        </div>
+        <input type="text" id="default-code-lang" placeholder="e.g. typescript" class="text-input" />
+      </div>
+    </section>
+
+    <section class="settings-group">
+      <h2>Style</h2>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <label for="style-template">Style Template</label>
+          <p class="setting-desc">Choose a preset style for the converted output.</p>
+        </div>
+        <select id="style-template" class="select-input">
+          <option value="minimal">Minimal</option>
+          <option value="enhanced">Enhanced</option>
+          <option value="document">Document</option>
+        </select>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <label for="table-border-style">Table Border Style</label>
+          <p class="setting-desc">Choose the border style for rendered tables.</p>
+        </div>
+        <select id="table-border-style" class="select-input">
+          <option value="solid">Solid</option>
+          <option value="dashed">Dashed</option>
+          <option value="none">None</option>
+        </select>
+      </div>
+
+      <div class="setting-row full-width">
+        <div class="setting-info">
+          <label for="custom-css">Custom CSS</label>
+          <p class="setting-desc">Additional inline styles applied to the output.</p>
+        </div>
+        <textarea id="custom-css" class="code-input" rows="4" placeholder="e.g. h1 { color: #333; }"></textarea>
+      </div>
+    </section>
+
+    <div class="actions">
+      <span id="save-status" class="save-status"></span>
+    </div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

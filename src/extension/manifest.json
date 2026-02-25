@@ -3,7 +3,8 @@
   "name": "md2Lark",
   "version": "0.1.0",
   "description": "Convert Markdown to Lark-optimized format for perfect paste",
-  "permissions": ["clipboardWrite", "activeTab", "scripting"],
+  "permissions": ["clipboardWrite", "activeTab", "scripting", "storage"],
+  "options_page": "options.html",
   "host_permissions": [
     "https://claude.ai/*",
     "https://chatgpt.com/*",

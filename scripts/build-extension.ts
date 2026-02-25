@@ -122,6 +122,7 @@ async function build(): Promise<void> {
     { name: 'popup', src: path.join(SRC_EXT, 'popup.ts') },
     { name: 'background', src: path.join(SRC_EXT, 'background.ts') },
     { name: 'content', src: path.join(SRC_EXT, 'content.ts') },
+    { name: 'options', src: path.join(SRC_EXT, 'options.ts') },
   ];
 
   for (const entry of entryPoints) {
@@ -148,6 +149,14 @@ async function build(): Promise<void> {
   copyFile(
     path.join(SRC_EXT, 'popup.css'),
     path.join(DIST_EXT, 'popup.css'),
+  );
+  copyFile(
+    path.join(SRC_EXT, 'options.html'),
+    path.join(DIST_EXT, 'options.html'),
+  );
+  copyFile(
+    path.join(SRC_EXT, 'options.css'),
+    path.join(DIST_EXT, 'options.css'),
   );
   copyFile(
     path.join(SRC_EXT, 'manifest.json'),

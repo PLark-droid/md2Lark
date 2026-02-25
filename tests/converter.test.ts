@@ -384,8 +384,8 @@ describe('convertToHtml', () => {
   it('should render task list items', () => {
     const md = '- [x] Done\n- [ ] Todo';
     const result = convertToHtml({ markdown: md });
-    // The LarkRenderer uses &#9745; for checked and &#9744; for unchecked
-    expect(result.html).toContain('&#9745;');
-    expect(result.html).toContain('&#9744;');
+    // The preprocessor converts checkboxes to emoji before the renderer sees them
+    expect(result.html).toContain('\u2705');
+    expect(result.html).toContain('\u2B1C');
   });
 });

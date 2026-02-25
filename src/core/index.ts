@@ -16,6 +16,12 @@ export { renderToLarkHtml, markdownToLarkHtml, LarkRenderer } from './renderer.j
 // Sanitizer
 export { sanitizeHtml } from './sanitizer.js';
 
+// Preprocessor
+export { preprocessMarkdown } from './preprocessor.js';
+
+// Postprocessor
+export { postprocessHtml } from './postprocessor.js';
+
 // Types
 export type {
   ParsedToken,

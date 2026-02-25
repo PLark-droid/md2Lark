@@ -2,6 +2,8 @@ import type { ConvertOptions, ConvertResult, LarkDocument } from './types';
 import { parseMarkdown } from './core/parser';
 import { renderToLarkHtml } from './core/renderer';
 import { sanitizeHtml } from './core/sanitizer';
+import { preprocessMarkdown } from './core/preprocessor';
+import { postprocessHtml } from './core/postprocessor';
 
 /**
  * Strip HTML tags from a string to produce plain text.
@@ -83,14 +85,20 @@ function extractTitle(markdown: string): string | undefined {
 export function convertToHtml(options: ConvertOptions): ConvertResult {
   const { markdown, title } = options;
 
+  // Step 0: Preprocess (normalize edge cases before parsing)
+  const preprocessed = preprocessMarkdown(markdown);
+
   // Step 1: Parse
-  const parseResult = parseMarkdown(markdown);
+  const parseResult = parseMarkdown(preprocessed);
 
   // Step 2: Render
   const rawHtml = renderToLarkHtml(parseResult.tokens);
 
   // Step 3: Sanitize
-  const html = sanitizeHtml(rawHtml);
+  const safeHtml = sanitizeHtml(rawHtml);
+
+  // Step 3.5: Postprocess (wrap tables, etc.)
+  const html = postprocessHtml(safeHtml);
 
   // Step 4: Plain text
   const plainText = stripHtmlTags(html);
