@@ -11,9 +11,12 @@
  * Remove dangerous HTML constructs that could lead to XSS.
  *
  * Specifically:
- * 1. `<script>` elements (including their content)
+ * 1. Dangerous elements (`<script>`, `<iframe>`, `<embed>`, `<object>`,
+ *    `<style>`, `<form>`, `<applet>`, `<base>`, `<meta>`) including their
+ *    content
  * 2. Inline event-handler attributes (`onclick`, `onerror`, etc.)
- * 3. `javascript:` URLs in `href` and `src` attributes
+ * 3. Dangerous URI schemes (`javascript:`, `vbscript:`, `data:`) in `href`,
+ *    `src`, `action`, and `formaction` attributes
  *
  * All other HTML is passed through unchanged.
  *
@@ -29,28 +32,42 @@
 export function sanitizeHtml(html: string): string {
   let result = html;
 
-  // 1. Strip <script> tags and everything between them.
-  //    The `s` (dotAll) flag ensures we match across newlines.
-  result = result.replace(
-    /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi,
-    '',
-  );
+  // 1. Strip dangerous tags (expanded list).
+  const dangerousTags = [
+    'script',
+    'iframe',
+    'embed',
+    'object',
+    'style',
+    'form',
+    'applet',
+    'base',
+    'meta',
+  ];
+  for (const tag of dangerousTags) {
+    // Remove paired tags with content.
+    result = result.replace(
+      new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}\\s*>`, 'gi'),
+      '',
+    );
+    // Remove self-closing / orphaned opening tags.
+    result = result.replace(
+      new RegExp(`<${tag}\\b[^>]*/?>`, 'gi'),
+      '',
+    );
+  }
 
-  // Also strip self-closing / unclosed <script> tags.
-  result = result.replace(/<script\b[^>]*\/?>/gi, '');
-
-  // 2. Strip on* event-handler attributes.
+  // 2. Strip on* event-handler attributes (quoted, unquoted, entity-encoded).
   //    Matches  onXxx="..."  |  onXxx='...'  |  onXxx=value (unquoted).
   result = result.replace(
     /\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi,
     '',
   );
 
-  // 3. Strip javascript: URLs inside href and src attributes.
-  //    We replace just the attribute value, keeping the attribute name so the
-  //    tag remains valid HTML.
+  // 3. Neutralize dangerous URI schemes in href, src, action, formaction.
+  //    Handles double-quoted, single-quoted, and unquoted attribute values.
   result = result.replace(
-    /(href|src)\s*=\s*(?:"[^"]*javascript\s*:[^"]*"|'[^']*javascript\s*:[^']*')/gi,
+    /(href|src|action|formaction)\s*=\s*(?:"[^"]*(?:javascript|vbscript|data)\s*:[^"]*"|'[^']*(?:javascript|vbscript|data)\s*:[^']*'|(?:javascript|vbscript|data)\s*:[^\s>]*)/gi,
     '$1=""',
   );
 

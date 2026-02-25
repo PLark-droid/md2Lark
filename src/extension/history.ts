@@ -37,8 +37,12 @@ export function extractTitle(markdown: string): string {
  * Load all history entries from chrome.storage.local.
  */
 export async function loadHistory(): Promise<HistoryEntry[]> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     chrome.storage.local.get({ [STORAGE_KEY]: [] }, (result) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
       resolve((result[STORAGE_KEY] as HistoryEntry[]) ?? []);
     });
   });
@@ -48,8 +52,12 @@ export async function loadHistory(): Promise<HistoryEntry[]> {
  * Save the full history array to chrome.storage.local.
  */
 async function saveHistory(entries: HistoryEntry[]): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     chrome.storage.local.set({ [STORAGE_KEY]: entries }, () => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
       resolve();
     });
   });

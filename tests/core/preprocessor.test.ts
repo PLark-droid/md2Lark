@@ -113,12 +113,24 @@ describe('preprocessMarkdown', () => {
 
     it('should not modify code inside fenced code blocks', () => {
       const input = '```\n- [x] not a checkbox\n$not math$\n```';
-      // The preprocessor operates on text level; the markdown parser
-      // will handle code block content correctly
       const result = preprocessMarkdown(input);
-      // At the preprocessor level, this may get converted, but
-      // the markdown parser code block handling will override
-      expect(typeof result).toBe('string');
+      expect(result).toContain('- [x] not a checkbox');
+      expect(result).toContain('$not math$');
+    });
+
+    it('should not convert dollar signs inside code blocks', () => {
+      const input = '```python\ntotal = $price * $quantity\n```';
+      const result = preprocessMarkdown(input);
+      expect(result).toContain('$price');
+      expect(result).toContain('$quantity');
+    });
+
+    it('should still convert content outside code blocks', () => {
+      const input = '- [x] done\n\n```\n- [x] in code\n```\n\n- [ ] todo';
+      const result = preprocessMarkdown(input);
+      expect(result).toContain('\u2705 done');
+      expect(result).toContain('- [x] in code');
+      expect(result).toContain('\u2B1C todo');
     });
   });
 });

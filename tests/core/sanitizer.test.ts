@@ -149,6 +149,106 @@ describe('sanitizeHtml - normal HTML passthrough', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Dangerous tag removal (iframe, embed, object, style, form, etc.)
+// ---------------------------------------------------------------------------
+
+describe('sanitizeHtml - dangerous tag removal', () => {
+  it('removes iframe tags', () => {
+    expect(sanitizeHtml('<iframe src="https://evil.com"></iframe>')).toBe('');
+  });
+
+  it('removes embed tags', () => {
+    expect(sanitizeHtml('<embed src="evil.swf">')).toBe('');
+  });
+
+  it('removes object tags', () => {
+    expect(sanitizeHtml('<object data="evil.swf"></object>')).toBe('');
+  });
+
+  it('removes style tags', () => {
+    expect(sanitizeHtml('<style>body{display:none}</style>')).toBe('');
+  });
+
+  it('removes form tags', () => {
+    expect(sanitizeHtml('<form action="evil"><input></form>')).toBe('');
+  });
+
+  it('removes applet tags', () => {
+    expect(sanitizeHtml('<applet code="Evil.class"></applet>')).toBe('');
+  });
+
+  it('removes base tags', () => {
+    expect(sanitizeHtml('<base href="https://evil.com">')).toBe('');
+  });
+
+  it('removes meta tags', () => {
+    expect(sanitizeHtml('<meta http-equiv="refresh" content="0;url=evil">')).toBe('');
+  });
+
+  it('removes dangerous tags case-insensitively', () => {
+    expect(sanitizeHtml('<IFRAME src="evil"></IFRAME>')).toBe('');
+    expect(sanitizeHtml('<Style>body{}</Style>')).toBe('');
+  });
+
+  it('preserves surrounding content when removing dangerous tags', () => {
+    const input = '<p>before</p><iframe src="evil"></iframe><p>after</p>';
+    expect(sanitizeHtml(input)).toBe('<p>before</p><p>after</p>');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// data: and vbscript: URI removal
+// ---------------------------------------------------------------------------
+
+describe('sanitizeHtml - data: and vbscript: URI removal', () => {
+  it('removes data: URIs in href', () => {
+    const input = '<a href="data:text/html,<script>alert(1)</script>">link</a>';
+    expect(sanitizeHtml(input)).not.toContain('data:');
+  });
+
+  it('removes data: URIs in src', () => {
+    const input = '<img src="data:image/svg+xml,<svg onload=alert(1)>">';
+    expect(sanitizeHtml(input)).not.toContain('data:');
+  });
+
+  it('removes vbscript: URIs', () => {
+    const input = '<a href="vbscript:MsgBox(1)">link</a>';
+    expect(sanitizeHtml(input)).not.toContain('vbscript:');
+  });
+
+  it('removes vbscript: URIs in single quotes', () => {
+    const input = "<a href='vbscript:MsgBox(1)'>link</a>";
+    expect(sanitizeHtml(input)).not.toContain('vbscript:');
+  });
+
+  it('removes data: URIs in action attribute', () => {
+    const input = '<form action="data:text/html,<script>alert(1)</script>">';
+    expect(sanitizeHtml(input)).not.toContain('data:');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Unquoted javascript: URL removal
+// ---------------------------------------------------------------------------
+
+describe('sanitizeHtml - unquoted javascript: URL removal', () => {
+  it('removes unquoted javascript: URLs', () => {
+    const input = '<a href=javascript:alert(1)>click</a>';
+    expect(sanitizeHtml(input)).not.toContain('javascript:');
+  });
+
+  it('removes unquoted vbscript: URLs', () => {
+    const input = '<a href=vbscript:MsgBox(1)>click</a>';
+    expect(sanitizeHtml(input)).not.toContain('vbscript:');
+  });
+
+  it('removes unquoted data: URLs', () => {
+    const input = '<a href=data:text/html,evil>click</a>';
+    expect(sanitizeHtml(input)).not.toContain('data:');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Nested / obfuscated XSS attempts
 // ---------------------------------------------------------------------------
 

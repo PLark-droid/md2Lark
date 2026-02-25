@@ -121,11 +121,10 @@ function showStatus(
   // Animate the convert button on success.
   if (kind === 'success' && convertBtn) {
     convertBtn.classList.add('copied');
-    const originalText = convertBtn.textContent;
     convertBtn.textContent = 'Copied!';
     setTimeout(() => {
       convertBtn.classList.remove('copied');
-      convertBtn.textContent = originalText;
+      convertBtn.textContent = 'Convert & Copy';
     }, durationMs);
   }
 
@@ -383,7 +382,8 @@ function escapeForHtml(text: string): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 /**
@@ -400,12 +400,12 @@ function renderHistoryList(entries: HistoryEntry[]): void {
 
   historyEmpty.style.display = 'none';
   historyList.innerHTML = entries.map(entry => `
-    <div class="history-item" data-id="${entry.id}">
+    <div class="history-item" data-id="${escapeForHtml(entry.id)}">
       <div class="history-item-info">
         <div class="history-item-title">${escapeForHtml(entry.title || 'Untitled')}</div>
-        <div class="history-item-time">${formatRelativeTime(entry.timestamp)}</div>
+        <div class="history-item-time">${escapeForHtml(formatRelativeTime(entry.timestamp))}</div>
       </div>
-      <button class="history-item-delete" data-delete-id="${entry.id}" title="Delete">&times;</button>
+      <button class="history-item-delete" data-delete-id="${escapeForHtml(entry.id)}" title="Delete">&times;</button>
     </div>
   `).join('');
 
@@ -563,8 +563,10 @@ if (clearHistoryBtn) {
 void refreshSettings();
 
 // Reload settings when storage changes (e.g., from options page).
-chrome.storage.onChanged.addListener(() => {
-  void refreshSettings();
-  // Re-render preview with new settings.
-  debouncedRenderPreview();
+chrome.storage.onChanged.addListener((_changes, areaName) => {
+  if (areaName === 'sync') {
+    void refreshSettings();
+    // Re-render preview with new settings.
+    debouncedRenderPreview();
+  }
 });

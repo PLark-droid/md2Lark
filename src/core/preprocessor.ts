@@ -122,10 +122,23 @@ function expandFootnotes(markdown: string): string {
  * @returns Preprocessed markdown ready for the parser.
  */
 export function preprocessMarkdown(markdown: string): string {
-  let result = markdown;
+  // Protect fenced code blocks from modification.
+  const codeBlocks: string[] = [];
+  let result = markdown.replace(/```[\s\S]*?```/g, (match) => {
+    codeBlocks.push(match);
+    return `\x00CODEBLOCK${codeBlocks.length - 1}\x00`;
+  });
+
+  // Apply transformations on unprotected text.
   result = normalizeBlankLines(result);
   result = convertLatexToCodeFallback(result);
   result = convertCheckboxes(result);
   result = expandFootnotes(result);
+
+  // Restore code blocks.
+  result = result.replace(/\x00CODEBLOCK(\d+)\x00/g, (_match, idx: string) => {
+    return codeBlocks[parseInt(idx, 10)];
+  });
+
   return result;
 }

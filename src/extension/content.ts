@@ -55,44 +55,54 @@ async function handleConvertAndCopy(markdown: string): Promise<void> {
   await copyHtmlToClipboard(safeHtml, plainText);
 }
 
-/**
- * Listen for messages from the background service worker.
- *
- * Expected message shape:
- * ```json
- * { "type": "convert-and-copy", "markdown": "..." }
- * ```
- *
- * Responds with `{ success: true }` on success or
- * `{ success: false, error: "..." }` on failure.
- */
-chrome.runtime.onMessage.addListener(
-  (
-    message: unknown,
-    _sender: chrome.runtime.MessageSender,
-    sendResponse: (response: { success: boolean; error?: string }) => void,
-  ) => {
-    if (
-      typeof message !== 'object' ||
-      message === null ||
-      (message as { type?: string }).type !== 'convert-and-copy'
-    ) {
-      return;
-    }
+// ---------------------------------------------------------------------------
+// Idempotency guard: prevent duplicate listener registration on re-injection.
+// ---------------------------------------------------------------------------
 
-    const markdown = (message as { markdown?: string }).markdown ?? '';
+if ((window as unknown as Record<string, unknown>).__md2lark_content_loaded) {
+  // Already loaded; skip.
+} else {
+  (window as unknown as Record<string, unknown>).__md2lark_content_loaded = true;
 
-    handleConvertAndCopy(markdown)
-      .then(() => {
-        sendResponse({ success: true });
-      })
-      .catch((err: unknown) => {
-        const errorMessage =
-          err instanceof Error ? err.message : 'Unknown error during conversion';
-        sendResponse({ success: false, error: errorMessage });
-      });
+  /**
+   * Listen for messages from the background service worker.
+   *
+   * Expected message shape:
+   * ```json
+   * { "type": "convert-and-copy", "markdown": "..." }
+   * ```
+   *
+   * Responds with `{ success: true }` on success or
+   * `{ success: false, error: "..." }` on failure.
+   */
+  chrome.runtime.onMessage.addListener(
+    (
+      message: unknown,
+      _sender: chrome.runtime.MessageSender,
+      sendResponse: (response: { success: boolean; error?: string }) => void,
+    ) => {
+      if (
+        typeof message !== 'object' ||
+        message === null ||
+        (message as { type?: string }).type !== 'convert-and-copy'
+      ) {
+        return;
+      }
 
-    // Return true to indicate we will respond asynchronously.
-    return true;
-  },
-);
+      const markdown = (message as { markdown?: string }).markdown ?? '';
+
+      handleConvertAndCopy(markdown)
+        .then(() => {
+          sendResponse({ success: true });
+        })
+        .catch((err: unknown) => {
+          const errorMessage =
+            err instanceof Error ? err.message : 'Unknown error during conversion';
+          sendResponse({ success: false, error: errorMessage });
+        });
+
+      // Return true to indicate we will respond asynchronously.
+      return true;
+    },
+  );
+}

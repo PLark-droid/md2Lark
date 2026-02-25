@@ -233,7 +233,7 @@ const larkRendererOverrides: RendererObject = {
   link(this: Renderer, { href, title, tokens }: Tokens.Link): string {
     const text = this.parser.parseInline(tokens);
     const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
-    return `<a href="${escapeHtml(href)}"${titleAttr} target="_blank">${text}</a>`;
+    return `<a href="${escapeHtml(href)}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`;
   },
 
   image({ href, title, text }: Tokens.Image): string {

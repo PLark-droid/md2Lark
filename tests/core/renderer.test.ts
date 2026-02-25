@@ -226,6 +226,11 @@ describe('LarkRenderer - links', () => {
     const html = render('[Link](https://example.com "Example")');
     expect(html).toContain('title="Example"');
   });
+
+  it('renders links with rel="noopener noreferrer"', () => {
+    const result = render('[Google](https://google.com)');
+    expect(result).toContain('rel="noopener noreferrer"');
+  });
 });
 
 describe('LarkRenderer - images', () => {
