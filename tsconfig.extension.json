@@ -3,18 +3,14 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "node",
-    "lib": ["ES2022"],
-    "outDir": "./dist",
-    "rootDir": "./src",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "outDir": "./dist/extension",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true
+    "sourceMap": false
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "tests", "coverage", "src/extension"]
+  "include": ["src/extension/**/*", "src/core/**/*"]
 }
