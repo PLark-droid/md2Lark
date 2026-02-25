@@ -16,7 +16,8 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "clean": "rimraf dist coverage",
-    "build:extension": "npx tsx scripts/build-extension.ts"
+    "build:extension": "npx tsx scripts/build-extension.ts",
+    "build:extension:prod": "npx tsx scripts/build-extension.ts --prod"
   },
   "keywords": [
     "markdown",
