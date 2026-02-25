@@ -19,6 +19,9 @@ import {
   type RendererObject,
 } from 'marked';
 
+import { getStyleTemplate } from './styles.js';
+import type { StyleTemplate } from './styles.js';
+
 // ---------------------------------------------------------------------------
 // HTML entity escaping
 // ---------------------------------------------------------------------------
@@ -282,11 +285,106 @@ export function renderToLarkHtml(tokens: Token[] | TokensList): string {
 }
 
 /**
+ * Apply a style template to rendered HTML by injecting/replacing
+ * inline style attributes on matching elements.
+ */
+function applyStyleTemplate(html: string, template: StyleTemplate): string {
+  let result = html;
+
+  // Process selectors in a controlled order: 'inline-code' must be handled
+  // before the generic 'code' selector so that the inline-code style is
+  // applied to standalone <code> elements before the 'code' rule would
+  // overwrite them.
+  const entries = Object.entries(template.styles);
+  const inlineCodeEntry = entries.find(([s]) => s === 'inline-code');
+  const codeEntry = entries.find(([s]) => s === 'code');
+  const otherEntries = entries.filter(
+    ([s]) => s !== 'inline-code' && s !== 'code',
+  );
+
+  // Build ordered list: inline-code first, then code, then the rest.
+  const ordered: Array<[string, string]> = [];
+  if (inlineCodeEntry) ordered.push(inlineCodeEntry);
+  if (codeEntry) ordered.push(codeEntry);
+  ordered.push(...otherEntries);
+
+  for (const [selector, style] of ordered) {
+    if (selector === 'inline-code') {
+      // Special case: inline <code> elements that are NOT inside a <pre> block.
+      // We match bare <code> tags (without an existing style or language class).
+      result = result.replace(
+        /(?<!<pre[^>]*>\s*)<code(?![^>]*class="language-)(?![^>]*style=")>/g,
+        `<code style="${style}">`,
+      );
+      continue;
+    }
+
+    if (selector === 'code') {
+      // Apply to <code> tags that do NOT already have a style attribute
+      // (i.e., those not already styled by the inline-code rule).
+      // This targets <code> inside <pre> blocks and any others missed.
+      result = result.replace(
+        /<code(?![^>]*style=")>/g,
+        `<code style="${style}">`,
+      );
+      // Also handle <code> with a class but no style (e.g., language-tagged).
+      result = result.replace(
+        /<code((?![^>]*style=")[^>]*)>/g,
+        `<code style="${style}"$1>`,
+      );
+      continue;
+    }
+
+    if (selector === 'th,td') {
+      // Apply to both th and td.
+      for (const tag of ['th', 'td']) {
+        // Replace existing style attribute.
+        result = result.replace(
+          new RegExp(`<${tag}\\s+style="[^"]*"`, 'g'),
+          `<${tag} style="${style}"`,
+        );
+        // Add style to bare tags.
+        result = result.replace(
+          new RegExp(`<${tag}>`, 'g'),
+          `<${tag} style="${style}">`,
+        );
+      }
+      continue;
+    }
+
+    // General case: add/replace style on matching tags.
+    const tags = selector.split(',').map((s) => s.trim());
+    for (const tag of tags) {
+      // Replace existing style attribute.
+      result = result.replace(
+        new RegExp(`<${tag}\\s+style="[^"]*"`, 'g'),
+        `<${tag} style="${style}"`,
+      );
+      // Add style to tags without one (but with other attributes).
+      result = result.replace(
+        new RegExp(`<${tag}(\\s+(?!style)[^>]*)>`, 'g'),
+        `<${tag} style="${style}"$1>`,
+      );
+      // Add style to bare tags.
+      result = result.replace(
+        new RegExp(`<${tag}>`, 'g'),
+        `<${tag} style="${style}">`,
+      );
+    }
+  }
+
+  return result;
+}
+
+/**
  * Convert raw Markdown to Lark-optimised HTML in a single call.
  *
  * This is a convenience wrapper around `Lexer.lex` + {@link renderToLarkHtml}.
  *
  * @param markdown - Raw Markdown source string.
+ * @param templateName - Optional style template name ('minimal', 'enhanced',
+ *   or 'document'). When provided, inline styles from the template are
+ *   applied as a post-processing step.
  * @returns HTML string suitable for pasting into Lark.
  *
  * @example
@@ -295,8 +393,22 @@ export function renderToLarkHtml(tokens: Token[] | TokensList): string {
  *
  * const html = markdownToLarkHtml('# Hello **world**');
  * // => '<h1>Hello <strong>world</strong></h1>\n'
+ *
+ * const styled = markdownToLarkHtml('# Hello', 'enhanced');
+ * // => heading with enhanced inline styles
  * ```
  */
-export function markdownToLarkHtml(markdown: string): string {
-  return larkMarked.parse(markdown, { async: false }) as string;
+export function markdownToLarkHtml(
+  markdown: string,
+  templateName?: string,
+): string {
+  let html = larkMarked.parse(markdown, { async: false }) as string;
+
+  // Apply style template overrides if specified.
+  if (templateName) {
+    const template = getStyleTemplate(templateName);
+    html = applyStyleTemplate(html, template);
+  }
+
+  return html;
 }

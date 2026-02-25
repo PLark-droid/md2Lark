@@ -41,6 +41,15 @@
     <div class="actions">
       <button id="convert-btn" type="button" aria-label="Convert Markdown and copy to clipboard">Convert &amp; Copy</button>
       <span id="status" class="status" aria-live="polite"></span>
+      <button id="history-btn" type="button" class="icon-btn" aria-label="Toggle conversion history" title="History">History</button>
+    </div>
+    <div id="history-panel" class="history-panel hidden">
+      <div class="history-header">
+        <span class="history-title">Recent Conversions</span>
+        <button id="clear-history-btn" type="button" class="text-btn" title="Clear all history">Clear All</button>
+      </div>
+      <div id="history-list" class="history-list"></div>
+      <div id="history-empty" class="history-empty">No conversion history yet.</div>
     </div>
   </div>
 

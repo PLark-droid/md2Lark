@@ -22,6 +22,10 @@ export { preprocessMarkdown } from './preprocessor.js';
 // Postprocessor
 export { postprocessHtml } from './postprocessor.js';
 
+// Styles
+export { getStyleTemplate, getElementStyle, STYLE_TEMPLATES } from './styles.js';
+export type { StyleTemplate, StyleTemplateName } from './styles.js';
+
 // Types
 export type {
   ParsedToken,

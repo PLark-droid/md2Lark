@@ -12,6 +12,9 @@
 import { markdownToLarkHtml } from '../core/renderer.js';
 import { sanitizeHtml } from '../core/sanitizer.js';
 import { copyHtmlToClipboard } from './clipboard.js';
+import { loadHistory, addHistoryEntry, deleteHistoryEntry, clearHistory } from './history.js';
+import type { HistoryEntry } from './history.js';
+import { loadSettings } from './storage.js';
 
 // ---------------------------------------------------------------------------
 // DOM references
@@ -41,6 +44,21 @@ const tabButtons = document.querySelectorAll<HTMLButtonElement>(
 );
 const fetchAiBtn = document.getElementById(
   'fetch-ai-btn',
+) as HTMLButtonElement | null;
+const historyBtn = document.getElementById(
+  'history-btn',
+) as HTMLButtonElement | null;
+const historyPanel = document.getElementById(
+  'history-panel',
+) as HTMLDivElement | null;
+const historyList = document.getElementById(
+  'history-list',
+) as HTMLDivElement | null;
+const historyEmpty = document.getElementById(
+  'history-empty',
+) as HTMLDivElement | null;
+const clearHistoryBtn = document.getElementById(
+  'clear-history-btn',
 ) as HTMLButtonElement | null;
 
 // ---------------------------------------------------------------------------
@@ -156,6 +174,19 @@ function updateSourceView(html: string): void {
   }
 }
 
+/** Cached style template name from settings. */
+let currentTemplateName = 'minimal';
+
+/** Load the current template name from settings. */
+async function refreshSettings(): Promise<void> {
+  try {
+    const settings = await loadSettings();
+    currentTemplateName = settings.styleTemplate;
+  } catch {
+    // Fallback to default if storage is unavailable.
+  }
+}
+
 /**
  * Process the current Markdown input and update both preview and source views.
  */
@@ -169,7 +200,7 @@ function renderPreview(): void {
     return;
   }
 
-  const rawHtml = markdownToLarkHtml(markdown);
+  const rawHtml = markdownToLarkHtml(markdown, currentTemplateName);
   const safeHtml = sanitizeHtml(rawHtml);
 
   updatePreview(safeHtml);
@@ -327,6 +358,99 @@ async function handleFetchFromAi(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// History
+// ---------------------------------------------------------------------------
+
+/**
+ * Format a timestamp to a relative time string.
+ */
+function formatRelativeTime(timestamp: number): string {
+  const diff = Date.now() - timestamp;
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+/**
+ * Escape HTML entities for safe insertion into innerHTML.
+ */
+function escapeForHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * Render the history list UI.
+ */
+function renderHistoryList(entries: HistoryEntry[]): void {
+  if (!historyList || !historyEmpty) return;
+
+  if (entries.length === 0) {
+    historyList.innerHTML = '';
+    historyEmpty.style.display = 'block';
+    return;
+  }
+
+  historyEmpty.style.display = 'none';
+  historyList.innerHTML = entries.map(entry => `
+    <div class="history-item" data-id="${entry.id}">
+      <div class="history-item-info">
+        <div class="history-item-title">${escapeForHtml(entry.title || 'Untitled')}</div>
+        <div class="history-item-time">${formatRelativeTime(entry.timestamp)}</div>
+      </div>
+      <button class="history-item-delete" data-delete-id="${entry.id}" title="Delete">&times;</button>
+    </div>
+  `).join('');
+
+  // Add click handlers for history items (load into editor).
+  historyList.querySelectorAll('.history-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      // Don't trigger load when clicking delete button.
+      if (target.classList.contains('history-item-delete')) return;
+
+      const id = (item as HTMLElement).dataset['id'];
+      const entry = entries.find(en => en.id === id);
+      if (entry && input) {
+        input.value = entry.markdown;
+        renderPreview();
+        showStatus('Loaded from history', 'success');
+      }
+    });
+  });
+
+  // Add click handlers for delete buttons.
+  historyList.querySelectorAll('.history-item-delete').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = (btn as HTMLElement).dataset['deleteId'];
+      if (id) {
+        void (async () => {
+          await deleteHistoryEntry(id);
+          const updated = await loadHistory();
+          renderHistoryList(updated);
+        })();
+      }
+    });
+  });
+}
+
+/**
+ * Refresh the history panel with current data.
+ */
+async function refreshHistoryPanel(): Promise<void> {
+  const entries = await loadHistory();
+  renderHistoryList(entries);
+}
+
+// ---------------------------------------------------------------------------
 // Main handler
 // ---------------------------------------------------------------------------
 
@@ -344,7 +468,7 @@ async function handleConvert(): Promise<void> {
 
   try {
     // 1. Convert Markdown to Lark-optimised HTML.
-    const rawHtml = markdownToLarkHtml(markdown);
+    const rawHtml = markdownToLarkHtml(markdown, currentTemplateName);
 
     // 2. Sanitize the output to remove XSS vectors.
     const safeHtml = sanitizeHtml(rawHtml);
@@ -354,6 +478,9 @@ async function handleConvert(): Promise<void> {
 
     // 4. Write both representations to the clipboard.
     await copyHtmlToClipboard(safeHtml, plainText);
+
+    // 5. Save to conversion history.
+    await addHistoryEntry(markdown, safeHtml);
 
     showStatus('Copied!', 'success');
   } catch (err: unknown) {
@@ -406,4 +533,38 @@ tabButtons.forEach((btn) => {
       switchTab(targetTab);
     }
   });
+});
+
+// History toggle button.
+if (historyBtn) {
+  historyBtn.addEventListener('click', () => {
+    if (historyPanel) {
+      const isVisible = !historyPanel.classList.contains('hidden');
+      historyPanel.classList.toggle('hidden');
+      historyBtn.classList.toggle('active', !isVisible);
+      if (!isVisible) {
+        void refreshHistoryPanel();
+      }
+    }
+  });
+}
+
+// Clear history button.
+if (clearHistoryBtn) {
+  clearHistoryBtn.addEventListener('click', () => {
+    void (async () => {
+      await clearHistory();
+      renderHistoryList([]);
+    })();
+  });
+}
+
+// Load settings on startup.
+void refreshSettings();
+
+// Reload settings when storage changes (e.g., from options page).
+chrome.storage.onChanged.addListener(() => {
+  void refreshSettings();
+  // Re-render preview with new settings.
+  debouncedRenderPreview();
 });
