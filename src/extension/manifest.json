@@ -4,6 +4,11 @@
   "version": "0.1.0",
   "description": "Convert Markdown to Lark-optimized format for perfect paste",
   "permissions": ["clipboardWrite", "activeTab", "scripting"],
+  "host_permissions": [
+    "https://claude.ai/*",
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },

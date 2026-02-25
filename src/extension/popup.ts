@@ -39,6 +39,9 @@ const sourceTab = document.getElementById(
 const tabButtons = document.querySelectorAll<HTMLButtonElement>(
   '.preview-tabs .tab',
 );
+const fetchAiBtn = document.getElementById(
+  'fetch-ai-btn',
+) as HTMLButtonElement | null;
 
 // ---------------------------------------------------------------------------
 // Utilities
@@ -96,6 +99,17 @@ function showStatus(
 
   statusEl.textContent = message;
   statusEl.className = `status status--${kind}`;
+
+  // Animate the convert button on success.
+  if (kind === 'success' && convertBtn) {
+    convertBtn.classList.add('copied');
+    const originalText = convertBtn.textContent;
+    convertBtn.textContent = 'Copied!';
+    setTimeout(() => {
+      convertBtn.classList.remove('copied');
+      convertBtn.textContent = originalText;
+    }, durationMs);
+  }
 
   setTimeout(() => {
     statusEl.textContent = '';
@@ -181,8 +195,10 @@ function switchTab(targetTab: string): void {
   tabButtons.forEach((btn) => {
     if (btn.dataset['tab'] === targetTab) {
       btn.classList.add('active');
+      btn.setAttribute('aria-selected', 'true');
     } else {
       btn.classList.remove('active');
+      btn.setAttribute('aria-selected', 'false');
     }
   });
 
@@ -193,6 +209,120 @@ function switchTab(targetTab: string): void {
   } else if (targetTab === 'source') {
     sourceTab?.classList.remove('hidden');
     previewTab?.classList.add('hidden');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Fetch from AI page
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch Markdown content from the current AI chat page (Claude/ChatGPT).
+ *
+ * Uses chrome.scripting.executeScript to run a DOM query in the active tab
+ * and extract the latest assistant message content.
+ */
+async function handleFetchFromAi(): Promise<void> {
+  if (!fetchAiBtn || !input) return;
+
+  fetchAiBtn.disabled = true;
+  fetchAiBtn.classList.add('fetching');
+  fetchAiBtn.textContent = 'Fetching...';
+
+  try {
+    // 1. Get the active tab.
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+
+    if (!tab?.id || !tab.url) {
+      showStatus('No active tab found.', 'error');
+      return;
+    }
+
+    // 2. Check if the tab is a supported AI page.
+    const url = tab.url;
+    const isClaude = url.includes('claude.ai');
+    const isChatGPT =
+      url.includes('chatgpt.com') || url.includes('chat.openai.com');
+
+    if (!isClaude && !isChatGPT) {
+      showStatus('Not on a Claude or ChatGPT page.', 'error', 3000);
+      return;
+    }
+
+    // 3. Execute script in the active tab to extract content.
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => {
+        const pageUrl = window.location.href;
+
+        // Claude.ai extraction
+        if (pageUrl.includes('claude.ai')) {
+          // Try multiple selectors for robustness against UI changes
+          const claudeSelectors = [
+            '[data-testid="chat-message-content"]',
+            '.font-claude-message',
+            '.prose',
+          ];
+
+          for (const selector of claudeSelectors) {
+            const elements = document.querySelectorAll(selector);
+            if (elements.length > 0) {
+              const lastEl = elements[elements.length - 1];
+              return lastEl.textContent?.trim() ?? '';
+            }
+          }
+        }
+
+        // ChatGPT extraction
+        if (
+          pageUrl.includes('chatgpt.com') ||
+          pageUrl.includes('chat.openai.com')
+        ) {
+          const chatgptSelectors = [
+            '[data-message-author-role="assistant"] .markdown',
+            '[data-message-author-role="assistant"]',
+            '.agent-turn .markdown',
+          ];
+
+          for (const selector of chatgptSelectors) {
+            const elements = document.querySelectorAll(selector);
+            if (elements.length > 0) {
+              const lastEl = elements[elements.length - 1];
+              return lastEl.textContent?.trim() ?? '';
+            }
+          }
+        }
+
+        return '';
+      },
+    });
+
+    const extractedText = (results?.[0]?.result as string) ?? '';
+
+    if (!extractedText) {
+      showStatus('No AI message found on this page.', 'error', 3000);
+      return;
+    }
+
+    // 4. Insert the extracted text into the textarea.
+    input.value = extractedText;
+
+    // 5. Trigger preview update.
+    renderPreview();
+
+    const serviceName = isClaude ? 'Claude' : 'ChatGPT';
+    showStatus(`Fetched from ${serviceName}!`, 'success');
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error ? err.message : 'Failed to fetch from AI page.';
+    showStatus(message, 'error', 4000);
+  } finally {
+    fetchAiBtn.disabled = false;
+    fetchAiBtn.classList.remove('fetching');
+    fetchAiBtn.textContent = 'Fetch from AI';
   }
 }
 
@@ -243,6 +373,13 @@ async function handleConvert(): Promise<void> {
 if (convertBtn) {
   convertBtn.addEventListener('click', () => {
     void handleConvert();
+  });
+}
+
+// Fetch from AI page button.
+if (fetchAiBtn) {
+  fetchAiBtn.addEventListener('click', () => {
+    void handleFetchFromAi();
   });
 }
 

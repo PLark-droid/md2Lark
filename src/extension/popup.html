@@ -14,28 +14,32 @@
     </header>
     <div class="editor-area">
       <div class="input-pane">
-        <label for="markdown-input">Markdown</label>
+        <div class="input-header">
+          <label for="markdown-input">Markdown</label>
+          <button id="fetch-ai-btn" type="button" title="Fetch from current AI page (Claude/ChatGPT)">Fetch from AI</button>
+        </div>
         <textarea
           id="markdown-input"
           placeholder="Paste your Markdown here..."
           spellcheck="false"
+          aria-describedby="status"
         ></textarea>
       </div>
       <div class="preview-pane">
-        <div class="preview-tabs">
-          <button class="tab active" data-tab="preview">Preview</button>
-          <button class="tab" data-tab="source">HTML Source</button>
+        <div class="preview-tabs" role="tablist">
+          <button class="tab active" data-tab="preview" role="tab" aria-selected="true">Preview</button>
+          <button class="tab" data-tab="source" role="tab" aria-selected="false">HTML Source</button>
         </div>
-        <div class="tab-content" id="preview-tab">
+        <div class="tab-content" id="preview-tab" role="tabpanel">
           <iframe id="preview-frame" sandbox="allow-same-origin"></iframe>
         </div>
-        <div class="tab-content hidden" id="source-tab">
+        <div class="tab-content hidden" id="source-tab" role="tabpanel">
           <pre id="html-source"><code></code></pre>
         </div>
       </div>
     </div>
     <div class="actions">
-      <button id="convert-btn" type="button">Convert &amp; Copy</button>
+      <button id="convert-btn" type="button" aria-label="Convert Markdown and copy to clipboard">Convert &amp; Copy</button>
       <span id="status" class="status" aria-live="polite"></span>
     </div>
   </div>

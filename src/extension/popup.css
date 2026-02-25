@@ -73,6 +73,7 @@ header h1 {
   font-size: 18px;
   font-weight: 700;
   color: var(--color-primary);
+  letter-spacing: -0.02em;
 }
 
 header .subtitle {
@@ -99,12 +100,48 @@ header .subtitle {
   min-width: 0;
 }
 
+.input-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  flex-shrink: 0;
+}
+
 .input-pane label {
   font-size: 12px;
   font-weight: 600;
   color: var(--color-text-secondary);
-  margin-bottom: 6px;
+  margin-bottom: 0;
   flex-shrink: 0;
+}
+
+#fetch-ai-btn {
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-primary);
+  background-color: transparent;
+  border: 1px solid var(--color-primary);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+}
+
+#fetch-ai-btn:hover {
+  background-color: var(--color-primary);
+  color: #ffffff;
+}
+
+#fetch-ai-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+#fetch-ai-btn.fetching {
+  opacity: 0.7;
+  cursor: wait;
 }
 
 /* ------------------------------------------------------------------
@@ -173,6 +210,7 @@ header .subtitle {
 .preview-tabs .tab.active {
   color: var(--color-primary);
   background-color: var(--color-bg);
+  border-bottom: 2px solid var(--color-primary);
 }
 
 .preview-tabs .tab:hover:not(.active) {
@@ -281,13 +319,69 @@ header .subtitle {
 
 .status {
   font-size: 13px;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  opacity: 0;
+  transform: translateY(2px);
 }
 
 .status--success {
   color: var(--color-success);
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .status--error {
   color: var(--color-error);
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ------------------------------------------------------------------
+ * Copy success animation
+ * ------------------------------------------------------------------ */
+
+@keyframes copy-flash {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+#convert-btn.copied {
+  background-color: var(--color-success);
+  animation: copy-flash 0.3s ease;
+}
+
+/* ------------------------------------------------------------------
+ * Focus styles for keyboard navigation
+ * ------------------------------------------------------------------ */
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+#markdown-input:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(51, 112, 255, 0.2);
+}
+
+/* ------------------------------------------------------------------
+ * Scrollbar styling
+ * ------------------------------------------------------------------ */
+
+#markdown-input::-webkit-scrollbar,
+#html-source::-webkit-scrollbar {
+  width: 6px;
+}
+
+#markdown-input::-webkit-scrollbar-thumb,
+#html-source::-webkit-scrollbar-thumb {
+  background-color: var(--color-border);
+  border-radius: 3px;
+}
+
+#markdown-input::-webkit-scrollbar-track,
+#html-source::-webkit-scrollbar-track {
+  background-color: transparent;
 }
