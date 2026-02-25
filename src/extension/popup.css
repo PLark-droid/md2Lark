@@ -2,36 +2,7 @@
  * md2Lark Chrome Extension - Popup Styles
  * ------------------------------------------------------------------ */
 
-:root {
-  --color-primary: #3370ff;
-  --color-primary-hover: #245bdb;
-  --color-success: #34c759;
-  --color-error: #ff3b30;
-  --color-bg: #ffffff;
-  --color-surface: #f5f6f7;
-  --color-border: #d9d9d9;
-  --color-text: #1f2329;
-  --color-text-secondary: #646a73;
-  --radius: 8px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #1a1a1a;
-    --color-surface: #2a2a2a;
-    --color-border: #444444;
-    --color-text: #e0e0e0;
-    --color-text-secondary: #999999;
-    --color-primary: #5b8eff;
-    --color-primary-hover: #4a7aee;
-  }
-}
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+@import url('common.css');
 
 body {
   width: 680px;
@@ -354,11 +325,6 @@ header .subtitle {
 /* ------------------------------------------------------------------
  * Focus styles for keyboard navigation
  * ------------------------------------------------------------------ */
-
-:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
 
 #markdown-input:focus-visible {
   outline: none;

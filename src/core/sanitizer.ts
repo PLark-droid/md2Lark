@@ -7,6 +7,61 @@
  * Lark rich-text editor can consume it.
  */
 
+// ---------------------------------------------------------------------------
+// Pre-compiled regex patterns for dangerous tags
+// ---------------------------------------------------------------------------
+
+/** Tags whose content and structure are always stripped. */
+const DANGEROUS_TAGS = [
+  'script',
+  'iframe',
+  'embed',
+  'object',
+  'style',
+  'form',
+  'applet',
+  'base',
+  'meta',
+  'svg',
+] as const;
+
+/**
+ * For each dangerous tag, a pair of pre-compiled RegExp objects:
+ *   [0] matches paired tags with content  (e.g. `<script ...>...</script>`)
+ *   [1] matches self-closing / orphaned opening tags  (e.g. `<script ... />`)
+ */
+const DANGEROUS_TAG_PATTERNS: ReadonlyArray<readonly [RegExp, RegExp]> =
+  DANGEROUS_TAGS.map((tag) => [
+    new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}\\s*>`, 'gi'),
+    new RegExp(`<${tag}\\b[^>]*/?>`, 'gi'),
+  ] as const);
+
+/** Matches inline event-handler attributes (onclick, onerror, ...). */
+const EVENT_HANDLER_RE =
+  /\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
+
+/** Matches href/src/action/formaction with double-quoted values. */
+const ATTR_DOUBLE_QUOTE_RE =
+  /(href|src|action|formaction)\s*=\s*"([^"]*)"/gi;
+
+/** Matches href/src/action/formaction with single-quoted values. */
+const ATTR_SINGLE_QUOTE_RE =
+  /(href|src|action|formaction)\s*=\s*'([^']*)'/gi;
+
+/** Hex-encoded HTML entity (e.g. `&#x6A;`). */
+const HEX_ENTITY_RE = /&#x([0-9a-fA-F]+);/gi;
+
+/** Decimal-encoded HTML entity (e.g. `&#106;`). */
+const DEC_ENTITY_RE = /&#(\d+);/g;
+
+/** Dangerous URI schemes in attribute values (double-quoted, single-quoted, or unquoted). */
+const DANGEROUS_URI_RE =
+  /(href|src|action|formaction)\s*=\s*(?:"[^"]*(?:javascript|vbscript|data)\s*:[^"]*"|'[^']*(?:javascript|vbscript|data)\s*:[^']*'|(?:javascript|vbscript|data)\s*:[^\s>]*)/gi;
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
 /**
  * Remove dangerous HTML constructs that could lead to XSS.
  *
@@ -32,64 +87,47 @@
 export function sanitizeHtml(html: string): string {
   let result = html;
 
-  // 1. Strip dangerous tags (expanded list).
-  const dangerousTags = [
-    'script',
-    'iframe',
-    'embed',
-    'object',
-    'style',
-    'form',
-    'applet',
-    'base',
-    'meta',
-  ];
-  for (const tag of dangerousTags) {
-    // Remove paired tags with content.
-    result = result.replace(
-      new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}\\s*>`, 'gi'),
-      '',
-    );
-    // Remove self-closing / orphaned opening tags.
-    result = result.replace(
-      new RegExp(`<${tag}\\b[^>]*/?>`, 'gi'),
-      '',
-    );
+  // 1. Strip dangerous tags using pre-compiled patterns.
+  for (const [pairedRe, selfClosingRe] of DANGEROUS_TAG_PATTERNS) {
+    // Reset lastIndex for global regexes.
+    pairedRe.lastIndex = 0;
+    selfClosingRe.lastIndex = 0;
+
+    result = result.replace(pairedRe, '');
+    result = result.replace(selfClosingRe, '');
   }
 
   // 2. Strip on* event-handler attributes (quoted, unquoted, entity-encoded).
-  //    Matches  onXxx="..."  |  onXxx='...'  |  onXxx=value (unquoted).
-  result = result.replace(
-    /\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi,
-    '',
-  );
+  EVENT_HANDLER_RE.lastIndex = 0;
+  result = result.replace(EVENT_HANDLER_RE, '');
 
   // 3. Decode HTML entities in href/src/action/formaction values to catch encoded schemes.
+  ATTR_DOUBLE_QUOTE_RE.lastIndex = 0;
   result = result.replace(
-    /(href|src|action|formaction)\s*=\s*"([^"]*)"/gi,
+    ATTR_DOUBLE_QUOTE_RE,
     (_match, attr: string, value: string) => {
       const decoded = value
-        .replace(/&#x([0-9a-fA-F]+);/gi, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)))
-        .replace(/&#(\d+);/g, (_m, dec: string) => String.fromCharCode(parseInt(dec, 10)));
-      return `${attr}="${decoded}"`;
+        .replace(HEX_ENTITY_RE, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)))
+        .replace(DEC_ENTITY_RE, (_m, dec: string) => String.fromCharCode(parseInt(dec, 10)));
+      const safe = decoded.replace(/"/g, '&quot;');
+      return `${attr}="${safe}"`;
     },
   );
+  ATTR_SINGLE_QUOTE_RE.lastIndex = 0;
   result = result.replace(
-    /(href|src|action|formaction)\s*=\s*'([^']*)'/gi,
+    ATTR_SINGLE_QUOTE_RE,
     (_match, attr: string, value: string) => {
       const decoded = value
-        .replace(/&#x([0-9a-fA-F]+);/gi, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)))
-        .replace(/&#(\d+);/g, (_m, dec: string) => String.fromCharCode(parseInt(dec, 10)));
-      return `${attr}='${decoded}'`;
+        .replace(HEX_ENTITY_RE, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)))
+        .replace(DEC_ENTITY_RE, (_m, dec: string) => String.fromCharCode(parseInt(dec, 10)));
+      const safe = decoded.replace(/'/g, '&#39;');
+      return `${attr}='${safe}'`;
     },
   );
 
   // 4. Neutralize dangerous URI schemes in href, src, action, formaction.
-  //    Handles double-quoted, single-quoted, and unquoted attribute values.
-  result = result.replace(
-    /(href|src|action|formaction)\s*=\s*(?:"[^"]*(?:javascript|vbscript|data)\s*:[^"]*"|'[^']*(?:javascript|vbscript|data)\s*:[^']*'|(?:javascript|vbscript|data)\s*:[^\s>]*)/gi,
-    '$1=""',
-  );
+  DANGEROUS_URI_RE.lastIndex = 0;
+  result = result.replace(DANGEROUS_URI_RE, '$1=""');
 
   return result;
 }

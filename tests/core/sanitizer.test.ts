@@ -297,3 +297,61 @@ describe('HTML entity encoded attacks', () => {
     expect(result).not.toContain('javascript:');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Entity decode re-escaping (#P1 security)
+// ---------------------------------------------------------------------------
+
+describe('sanitizeHtml - entity decode re-escaping', () => {
+  it('escapes decoded double quotes in double-quoted attribute values', () => {
+    const input = '<a href="foo&#34;bar">link</a>';
+    const result = sanitizeHtml(input);
+    expect(result).toContain('href="foo&quot;bar"');
+    expect(result).not.toMatch(/href="foo"bar"/);
+  });
+
+  it('escapes decoded single quotes in single-quoted attribute values', () => {
+    const input = "<a href='foo&#39;bar'>link</a>";
+    const result = sanitizeHtml(input);
+    expect(result).toContain("href='foo&#39;bar'");
+    expect(result).not.toMatch(/href='foo'bar'/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SVG tag removal (#P1 security)
+// ---------------------------------------------------------------------------
+
+describe('sanitizeHtml - SVG tag removal', () => {
+  it('removes <svg onload=alert(1)>', () => {
+    const input = '<svg onload="alert(1)"></svg>';
+    const result = sanitizeHtml(input);
+    expect(result).not.toContain('<svg');
+    expect(result).not.toContain('alert');
+  });
+
+  it('removes self-closing <svg> tags', () => {
+    const input = '<p>before</p><svg/onload=alert(1)><p>after</p>';
+    const result = sanitizeHtml(input);
+    expect(result).not.toContain('<svg');
+  });
+
+  it('removes <svg> tags case-insensitively', () => {
+    const input = '<SVG><script>alert(1)</script></SVG>';
+    const result = sanitizeHtml(input);
+    expect(result).not.toContain('<SVG');
+    expect(result).not.toContain('<svg');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Entity-encoded dangerous URIs in single-quoted attributes
+// ---------------------------------------------------------------------------
+
+describe('sanitizeHtml - entity-encoded dangerous URIs in single quotes', () => {
+  it('neutralizes entity-encoded javascript: in single-quoted href', () => {
+    const input = "<a href='&#106;&#97;&#118;&#97;&#115;&#99;&#114;&#105;&#112;&#116;&#58;alert(1)'>link</a>";
+    const result = sanitizeHtml(input);
+    expect(result).not.toContain('javascript:');
+  });
+});

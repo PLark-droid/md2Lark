@@ -290,6 +290,47 @@ export function renderToLarkHtml(tokens: Token[] | TokensList): string {
   return larkMarked.parser(tokens) as string;
 }
 
+// ---------------------------------------------------------------------------
+// Pre-compiled regex cache for applyStyleTemplate
+// ---------------------------------------------------------------------------
+
+/** Static regex patterns used in applyStyleTemplate for special selectors. */
+const INLINE_CODE_RE =
+  /(?<!<pre[^>]*>\s*)<code(?![^>]*class="language-)(?![^>]*style=")>/g;
+const CODE_BARE_RE = /<code(?![^>]*style=")>/g;
+const CODE_WITH_ATTRS_RE = /<code((?![^>]*style=")[^>]*)>/g;
+
+/**
+ * Per-tag compiled regex patterns for style injection.
+ *
+ * Keyed by tag name; each value is a triple of RegExp objects:
+ *   [0] matches `<tag style="..."`   (replace existing style)
+ *   [1] matches `<tag ...>` without style  (add style to tags with other attrs)
+ *   [2] matches `<tag>`              (add style to bare tags)
+ */
+const tagRegexCache = new Map<
+  string,
+  readonly [RegExp, RegExp, RegExp]
+>();
+
+/**
+ * Get (or create and cache) the regex triple for a given HTML tag name.
+ */
+function getTagRegexes(
+  tag: string,
+): readonly [RegExp, RegExp, RegExp] {
+  let cached = tagRegexCache.get(tag);
+  if (!cached) {
+    cached = [
+      new RegExp(`<${tag}\\s+style="[^"]*"`, 'g'),
+      new RegExp(`<${tag}((?![^>]*style=)[^>]*)>`, 'g'),
+      new RegExp(`<${tag}>`, 'g'),
+    ] as const;
+    tagRegexCache.set(tag, cached);
+  }
+  return cached;
+}
+
 /**
  * Apply a style template to rendered HTML by injecting/replacing
  * inline style attributes on matching elements.
@@ -317,25 +358,25 @@ function applyStyleTemplate(html: string, template: StyleTemplate): string {
   for (const [selector, style] of ordered) {
     if (selector === 'inline-code') {
       // Special case: inline <code> elements that are NOT inside a <pre> block.
-      // We match bare <code> tags (without an existing style or language class).
+      INLINE_CODE_RE.lastIndex = 0;
       result = result.replace(
-        /(?<!<pre[^>]*>\s*)<code(?![^>]*class="language-)(?![^>]*style=")>/g,
+        INLINE_CODE_RE,
         `<code style="${style}">`,
       );
       continue;
     }
 
     if (selector === 'code') {
-      // Apply to <code> tags that do NOT already have a style attribute
-      // (i.e., those not already styled by the inline-code rule).
-      // This targets <code> inside <pre> blocks and any others missed.
+      // Apply to <code> tags that do NOT already have a style attribute.
+      CODE_BARE_RE.lastIndex = 0;
       result = result.replace(
-        /<code(?![^>]*style=")>/g,
+        CODE_BARE_RE,
         `<code style="${style}">`,
       );
       // Also handle <code> with a class but no style (e.g., language-tagged).
+      CODE_WITH_ATTRS_RE.lastIndex = 0;
       result = result.replace(
-        /<code((?![^>]*style=")[^>]*)>/g,
+        CODE_WITH_ATTRS_RE,
         `<code style="${style}"$1>`,
       );
       continue;
@@ -344,14 +385,15 @@ function applyStyleTemplate(html: string, template: StyleTemplate): string {
     if (selector === 'th,td') {
       // Apply to both th and td.
       for (const tag of ['th', 'td']) {
-        // Replace existing style attribute.
+        const [replaceStyleRe, , bareTagRe] = getTagRegexes(tag);
+        replaceStyleRe.lastIndex = 0;
+        bareTagRe.lastIndex = 0;
         result = result.replace(
-          new RegExp(`<${tag}\\s+style="[^"]*"`, 'g'),
+          replaceStyleRe,
           `<${tag} style="${style}"`,
         );
-        // Add style to bare tags.
         result = result.replace(
-          new RegExp(`<${tag}>`, 'g'),
+          bareTagRe,
           `<${tag} style="${style}">`,
         );
       }
@@ -361,19 +403,21 @@ function applyStyleTemplate(html: string, template: StyleTemplate): string {
     // General case: add/replace style on matching tags.
     const tags = selector.split(',').map((s) => s.trim());
     for (const tag of tags) {
-      // Replace existing style attribute.
+      const [replaceStyleRe, addStyleRe, bareTagRe] = getTagRegexes(tag);
+      replaceStyleRe.lastIndex = 0;
+      addStyleRe.lastIndex = 0;
+      bareTagRe.lastIndex = 0;
+
       result = result.replace(
-        new RegExp(`<${tag}\\s+style="[^"]*"`, 'g'),
+        replaceStyleRe,
         `<${tag} style="${style}"`,
       );
-      // Add style to tags without one (but with other attributes).
       result = result.replace(
-        new RegExp(`<${tag}((?![^>]*style=)[^>]*)>`, 'g'),
+        addStyleRe,
         `<${tag} style="${style}"$1>`,
       );
-      // Add style to bare tags.
       result = result.replace(
-        new RegExp(`<${tag}>`, 'g'),
+        bareTagRe,
         `<${tag} style="${style}">`,
       );
     }

@@ -7,6 +7,7 @@
 
 import { loadSettings, saveSettings } from './storage.js';
 import type { Md2LarkSettings } from './storage.js';
+import { debounce } from './utils.js';
 
 // DOM references
 const gfmEnabledEl = document.getElementById('gfm-enabled') as HTMLInputElement | null;
@@ -91,14 +92,11 @@ async function init(): Promise<void> {
   }
 
   // Also auto-save on text input (for textarea and text fields with debounce).
-  let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+  const debouncedAutoSave = debounce(() => { void handleAutoSave(); }, 500);
   const textInputs = [defaultCodeLangEl, customCssEl];
   for (const el of textInputs) {
     if (el) {
-      el.addEventListener('input', () => {
-        if (debounceTimer !== undefined) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => { void handleAutoSave(); }, 500);
-      });
+      el.addEventListener('input', debouncedAutoSave);
     }
   }
 }

@@ -15,7 +15,7 @@ import { copyHtmlToClipboard } from './clipboard.js';
 import { loadHistory, addHistoryEntry, deleteHistoryEntry, clearHistory } from './history.js';
 import type { HistoryEntry } from './history.js';
 import { loadSettings } from './storage.js';
-import { htmlToPlainText } from './utils.js';
+import { debounce, htmlToPlainText } from './utils.js';
 
 // ---------------------------------------------------------------------------
 // DOM references
@@ -63,35 +63,6 @@ const clearHistoryBtn = document.getElementById(
 ) as HTMLButtonElement | null;
 
 // ---------------------------------------------------------------------------
-// Utilities
-// ---------------------------------------------------------------------------
-
-/**
- * Create a debounced version of a function.
- *
- * The returned function delays invoking `fn` until after `ms` milliseconds
- * have elapsed since the last time the debounced function was called.
- *
- * @param fn - The function to debounce.
- * @param ms - The debounce delay in milliseconds.
- * @returns A debounced wrapper around `fn`.
- */
-function debounce<A extends unknown[]>(
-  fn: (...args: A) => void,
-  ms: number,
-): (...args: A) => void {
-  let timerId: ReturnType<typeof setTimeout> | undefined;
-  return (...args: A): void => {
-    if (timerId !== undefined) {
-      clearTimeout(timerId);
-    }
-    timerId = setTimeout(() => {
-      fn(...args);
-    }, ms);
-  };
-}
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -137,7 +108,7 @@ function showStatus(
 function updatePreview(html: string): void {
   if (previewFrame) {
     previewFrame.srcdoc = `<!DOCTYPE html>
-<html><head><style>
+<html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: https:;"><style>
   body { font-family: system-ui, sans-serif; padding: 12px; font-size: 14px; line-height: 1.6; margin: 0; }
   pre { background: #f5f5f5; padding: 12px; border-radius: 4px; overflow-x: auto; }
   code { font-family: monospace; }
@@ -364,63 +335,77 @@ function formatRelativeTime(timestamp: number): string {
   return `${days}d ago`;
 }
 
-/**
- * Escape HTML entities for safe insertion into innerHTML.
- */
-function escapeForHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+/** Current entries backing the history list (used by the delegated handler). */
+let currentHistoryEntries: HistoryEntry[] = [];
 
 /**
- * Render the history list UI.
+ * Render the history list UI using DOM APIs (no innerHTML).
  */
 function renderHistoryList(entries: HistoryEntry[]): void {
   if (!historyList || !historyEmpty) return;
 
+  currentHistoryEntries = entries;
+
+  // Clear existing children.
+  while (historyList.firstChild) {
+    historyList.removeChild(historyList.firstChild);
+  }
+
   if (entries.length === 0) {
-    historyList.innerHTML = '';
     historyEmpty.style.display = 'block';
     return;
   }
 
   historyEmpty.style.display = 'none';
-  historyList.innerHTML = entries.map(entry => `
-    <div class="history-item" data-id="${escapeForHtml(entry.id)}">
-      <div class="history-item-info">
-        <div class="history-item-title">${escapeForHtml(entry.title || 'Untitled')}</div>
-        <div class="history-item-time">${escapeForHtml(formatRelativeTime(entry.timestamp))}</div>
-      </div>
-      <button class="history-item-delete" data-delete-id="${escapeForHtml(entry.id)}" title="Delete">&times;</button>
-    </div>
-  `).join('');
 
-  // Add click handlers for history items (load into editor).
-  historyList.querySelectorAll('.history-item').forEach(item => {
-    item.addEventListener('click', (e) => {
-      const target = e.target as HTMLElement;
-      // Don't trigger load when clicking delete button.
-      if (target.classList.contains('history-item-delete')) return;
+  const fragment = document.createDocumentFragment();
 
-      const id = (item as HTMLElement).dataset['id'];
-      const entry = entries.find(en => en.id === id);
-      if (entry && input) {
-        input.value = entry.markdown;
-        renderPreview();
-        showStatus('Loaded from history', 'success');
-      }
-    });
-  });
+  for (const entry of entries) {
+    const item = document.createElement('div');
+    item.className = 'history-item';
+    item.dataset['id'] = entry.id;
+    item.setAttribute('role', 'button');
+    item.setAttribute('tabindex', '0');
 
-  // Add click handlers for delete buttons.
-  historyList.querySelectorAll('.history-item-delete').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    const info = document.createElement('div');
+    info.className = 'history-item-info';
+
+    const title = document.createElement('div');
+    title.className = 'history-item-title';
+    title.textContent = entry.title || 'Untitled';
+
+    const time = document.createElement('div');
+    time.className = 'history-item-time';
+    time.textContent = formatRelativeTime(entry.timestamp);
+
+    info.appendChild(title);
+    info.appendChild(time);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'history-item-delete';
+    deleteBtn.dataset['deleteId'] = entry.id;
+    deleteBtn.setAttribute('title', 'Delete');
+    deleteBtn.setAttribute('aria-label', 'Delete');
+    deleteBtn.textContent = '\u00D7';
+
+    item.appendChild(info);
+    item.appendChild(deleteBtn);
+    fragment.appendChild(item);
+  }
+
+  historyList.appendChild(fragment);
+}
+
+// Event delegation: single click listener on historyList.
+if (historyList) {
+  historyList.addEventListener('click', (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+
+    // Delete button clicked.
+    const deleteBtn = target.closest('.history-item-delete') as HTMLElement | null;
+    if (deleteBtn) {
       e.stopPropagation();
-      const id = (btn as HTMLElement).dataset['deleteId'];
+      const id = deleteBtn.dataset['deleteId'];
       if (id) {
         void (async () => {
           await deleteHistoryEntry(id);
@@ -428,7 +413,20 @@ function renderHistoryList(entries: HistoryEntry[]): void {
           renderHistoryList(updated);
         })();
       }
-    });
+      return;
+    }
+
+    // History item clicked (load into editor).
+    const item = target.closest('.history-item') as HTMLElement | null;
+    if (item) {
+      const id = item.dataset['id'];
+      const entry = currentHistoryEntries.find(en => en.id === id);
+      if (entry && input) {
+        input.value = entry.markdown;
+        renderPreview();
+        showStatus('Loaded from history', 'success');
+      }
+    }
   });
 }
 
@@ -521,6 +519,30 @@ tabButtons.forEach((btn) => {
     const targetTab = btn.dataset['tab'];
     if (targetTab) {
       switchTab(targetTab);
+    }
+  });
+});
+
+// Arrow key navigation for tabs (WAI-ARIA Tabs Pattern).
+tabButtons.forEach((btn, index) => {
+  btn.addEventListener('keydown', (e: KeyboardEvent) => {
+    const tabs = Array.from(tabButtons);
+    let nextIndex: number | undefined;
+
+    if (e.key === 'ArrowRight') {
+      nextIndex = (index + 1) % tabs.length;
+    } else if (e.key === 'ArrowLeft') {
+      nextIndex = (index - 1 + tabs.length) % tabs.length;
+    }
+
+    if (nextIndex !== undefined) {
+      e.preventDefault();
+      const nextBtn = tabs[nextIndex];
+      nextBtn.focus();
+      const targetTab = nextBtn.dataset['tab'];
+      if (targetTab) {
+        switchTab(targetTab);
+      }
     }
   });
 });
