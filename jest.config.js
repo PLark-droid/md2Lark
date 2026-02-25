@@ -4,6 +4,9 @@ module.exports = {
   testEnvironment: 'node',
   roots: ['<rootDir>/src', '<rootDir>/tests'],
   testMatch: ['**/*.test.ts', '**/*.spec.ts'],
+  moduleNameMapper: {
+    '^marked$': '<rootDir>/node_modules/marked/lib/marked.umd.js',
+  },
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',
