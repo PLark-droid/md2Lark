@@ -35,6 +35,11 @@ if (!GITHUB_REPOSITORY) {
 
 const [OWNER, REPO] = GITHUB_REPOSITORY.split("/");
 
+if (!OWNER || !REPO || !/^[\w.-]+$/.test(OWNER) || !/^[\w.-]+$/.test(REPO)) {
+  console.error('Error: GITHUB_REPOSITORY must be in "owner/repo" format with valid characters.');
+  process.exit(1);
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -147,7 +152,7 @@ async function restGetAll<T>(path: string): Promise<T[]> {
   return results;
 }
 
-async function graphql<T>(query: string): Promise<T | null> {
+async function graphql<T>(query: string, variables?: Record<string, unknown>): Promise<T | null> {
   console.log("  POST https://api.github.com/graphql");
   try {
     const res = await fetch("https://api.github.com/graphql", {
@@ -156,7 +161,7 @@ async function graphql<T>(query: string): Promise<T | null> {
         Authorization: `Bearer ${GITHUB_TOKEN}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({ query, variables }),
     });
     if (!res.ok) {
       console.warn(`  Warning: GraphQL ${res.status} ${res.statusText}`);
@@ -276,38 +281,51 @@ async function fetchProject(): Promise<DashboardData["project"]> {
 
   // Try both user and organization queries
   for (const ownerType of ["user", "organization"] as const) {
-    const ownerField =
+    const query =
       ownerType === "user"
-        ? `user(login: "${OWNER}")`
-        : `organization(login: "${OWNER}")`;
-
-    const query = `
-      query {
-        ${ownerField} {
-          projectV2(number: ${GITHUB_PROJECT_NUMBER}) {
+        ? `
+      query($login: String!, $projectNumber: Int!) {
+        user(login: $login) {
+          projectV2(number: $projectNumber) {
             title
             items(first: 100) {
               nodes {
                 content {
-                  ... on Issue {
-                    title
-                  }
-                  ... on PullRequest {
-                    title
-                  }
-                  ... on DraftIssue {
-                    title
-                  }
+                  ... on Issue { title }
+                  ... on PullRequest { title }
+                  ... on DraftIssue { title }
                 }
                 fieldValues(first: 10) {
                   nodes {
                     ... on ProjectV2ItemFieldSingleSelectValue {
                       name
-                      field {
-                        ... on ProjectV2SingleSelectField {
-                          name
-                        }
-                      }
+                      field { ... on ProjectV2SingleSelectField { name } }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+        : `
+      query($login: String!, $projectNumber: Int!) {
+        organization(login: $login) {
+          projectV2(number: $projectNumber) {
+            title
+            items(first: 100) {
+              nodes {
+                content {
+                  ... on Issue { title }
+                  ... on PullRequest { title }
+                  ... on DraftIssue { title }
+                }
+                fieldValues(first: 10) {
+                  nodes {
+                    ... on ProjectV2ItemFieldSingleSelectValue {
+                      name
+                      field { ... on ProjectV2SingleSelectField { name } }
                     }
                   }
                 }
@@ -317,6 +335,8 @@ async function fetchProject(): Promise<DashboardData["project"]> {
         }
       }
     `;
+
+    const variables = { login: OWNER, projectNumber: GITHUB_PROJECT_NUMBER };
 
     interface ProjectV2Response {
       [key: string]: {
@@ -337,7 +357,7 @@ async function fetchProject(): Promise<DashboardData["project"]> {
       };
     }
 
-    const data = await graphql<ProjectV2Response>(query);
+    const data = await graphql<ProjectV2Response>(query, variables);
     if (!data) continue;
 
     const ownerData = data[ownerType === "user" ? "user" : "organization"];

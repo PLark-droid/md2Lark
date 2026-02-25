@@ -64,7 +64,27 @@ export function sanitizeHtml(html: string): string {
     '',
   );
 
-  // 3. Neutralize dangerous URI schemes in href, src, action, formaction.
+  // 3. Decode HTML entities in href/src/action/formaction values to catch encoded schemes.
+  result = result.replace(
+    /(href|src|action|formaction)\s*=\s*"([^"]*)"/gi,
+    (_match, attr: string, value: string) => {
+      const decoded = value
+        .replace(/&#x([0-9a-fA-F]+);/gi, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)))
+        .replace(/&#(\d+);/g, (_m, dec: string) => String.fromCharCode(parseInt(dec, 10)));
+      return `${attr}="${decoded}"`;
+    },
+  );
+  result = result.replace(
+    /(href|src|action|formaction)\s*=\s*'([^']*)'/gi,
+    (_match, attr: string, value: string) => {
+      const decoded = value
+        .replace(/&#x([0-9a-fA-F]+);/gi, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)))
+        .replace(/&#(\d+);/g, (_m, dec: string) => String.fromCharCode(parseInt(dec, 10)));
+      return `${attr}='${decoded}'`;
+    },
+  );
+
+  // 4. Neutralize dangerous URI schemes in href, src, action, formaction.
   //    Handles double-quoted, single-quoted, and unquoted attribute values.
   result = result.replace(
     /(href|src|action|formaction)\s*=\s*(?:"[^"]*(?:javascript|vbscript|data)\s*:[^"]*"|'[^']*(?:javascript|vbscript|data)\s*:[^']*'|(?:javascript|vbscript|data)\s*:[^\s>]*)/gi,

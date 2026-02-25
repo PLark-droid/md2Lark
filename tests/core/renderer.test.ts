@@ -372,6 +372,22 @@ describe('LarkRenderer - Japanese text', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Security (#47)
+// ---------------------------------------------------------------------------
+
+describe('LarkRenderer - security', () => {
+  it('escapes javascript: in link href', () => {
+    const result = render('[click](javascript:alert(1))');
+    expect(result).not.toContain('href="javascript:');
+  });
+
+  it('escapes HTML in code block language', () => {
+    const result = render('```<script>alert(1)</script>\ncode\n```');
+    expect(result).not.toContain('<script>');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // LarkRenderer class export
 // ---------------------------------------------------------------------------
 

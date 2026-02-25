@@ -140,4 +140,30 @@ describe('Edge cases - full pipeline', () => {
       expect(result).toContain('indented code');
     });
   });
+
+  // -- Performance tests (#48) ----------------------------------------------
+
+  describe('performance', () => {
+    it('should handle large input within 5 seconds', () => {
+      const largeMd = '# Title\n\n' + 'Paragraph text here. '.repeat(10000);
+      const start = Date.now();
+      const result = fullPipeline(largeMd);
+      expect(Date.now() - start).toBeLessThan(5000);
+      expect(result).toContain('Title');
+    });
+  });
+
+  // -- Deeply nested structures (#48) ---------------------------------------
+
+  describe('deeply nested structures', () => {
+    it('should handle 10-level nested lists', () => {
+      const md = Array.from({ length: 10 }, (_, i) => '  '.repeat(i) + '- item ' + (i + 1)).join('\n');
+      expect(() => fullPipeline(md)).not.toThrow();
+    });
+
+    it('should handle 5-level nested blockquotes', () => {
+      const md = Array.from({ length: 5 }, (_, i) => '>'.repeat(i + 1) + ' level ' + (i + 1)).join('\n');
+      expect(() => fullPipeline(md)).not.toThrow();
+    });
+  });
 });

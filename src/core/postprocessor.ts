@@ -20,10 +20,10 @@
 function wrapTablesForOverflow(html: string): string {
   return html
     .replace(
-      /<table/g,
+      /(?<!<div[^>]*overflow-x[^>]*>\s*)<table/g,
       '<div style="overflow-x: auto; max-width: 100%;"><table',
     )
-    .replace(/<\/table>/g, '</table></div>');
+    .replace(/<\/table>(?!\s*<\/div>)/g, '</table></div>');
 }
 
 /**

@@ -14,11 +14,14 @@ import { postprocessHtml } from './core/postprocessor';
 function stripHtmlTags(html: string): string {
   return html
     .replace(/<[^>]*>/g, '')
+    .replace(/&#x([0-9a-fA-F]+);/gi, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_m, dec: string) => String.fromCharCode(parseInt(dec, 10)))
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
@@ -131,7 +134,7 @@ export function convertToHtml(options: ConvertOptions): ConvertResult {
  * @returns A LarkDocument with an additional `html` property.
  */
 export function convert(options: ConvertOptions): LarkDocument & { html: string } {
-  const { markdown, title = 'Untitled' } = options;
+  const { title = 'Untitled' } = options;
   const result = convertToHtml(options);
 
   return {
@@ -139,7 +142,7 @@ export function convert(options: ConvertOptions): LarkDocument & { html: string 
     content: [
       {
         blockType: 'paragraph',
-        body: { text: markdown },
+        body: { text: result.plainText },
       },
     ],
     html: result.html,

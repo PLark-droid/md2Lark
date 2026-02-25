@@ -279,3 +279,21 @@ describe('sanitizeHtml - nested and obfuscated XSS', () => {
     expect(result).not.toContain('alert');
   });
 });
+
+// ---------------------------------------------------------------------------
+// HTML entity encoded attacks (#47)
+// ---------------------------------------------------------------------------
+
+describe('HTML entity encoded attacks', () => {
+  it('neutralizes entity-encoded javascript: in href', () => {
+    const input = '<a href="&#106;&#97;&#118;&#97;&#115;&#99;&#114;&#105;&#112;&#116;&#58;alert(1)">link</a>';
+    const result = sanitizeHtml(input);
+    expect(result).not.toContain('javascript:');
+  });
+
+  it('neutralizes hex entity-encoded javascript: in href', () => {
+    const input = '<a href="&#x6A;avascript:alert(1)">link</a>';
+    const result = sanitizeHtml(input);
+    expect(result).not.toContain('javascript:');
+  });
+});

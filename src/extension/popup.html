@@ -27,13 +27,13 @@
       </div>
       <div class="preview-pane">
         <div class="preview-tabs" role="tablist">
-          <button class="tab active" data-tab="preview" role="tab" aria-selected="true">Preview</button>
-          <button class="tab" data-tab="source" role="tab" aria-selected="false">HTML Source</button>
+          <button id="tab-btn-preview" class="tab active" data-tab="preview" role="tab" aria-selected="true" aria-controls="preview-tab">Preview</button>
+          <button id="tab-btn-source" class="tab" data-tab="source" role="tab" aria-selected="false" aria-controls="source-tab">HTML Source</button>
         </div>
-        <div class="tab-content" id="preview-tab" role="tabpanel">
+        <div class="tab-content" id="preview-tab" role="tabpanel" aria-labelledby="tab-btn-preview">
           <iframe id="preview-frame" sandbox=""></iframe>
         </div>
-        <div class="tab-content hidden" id="source-tab" role="tabpanel">
+        <div class="tab-content hidden" id="source-tab" role="tabpanel" aria-labelledby="tab-btn-source">
           <pre id="html-source"><code></code></pre>
         </div>
       </div>

@@ -31,16 +31,14 @@ export const DEFAULT_SETTINGS: Md2LarkSettings = {
  */
 export async function loadSettings(): Promise<Md2LarkSettings> {
   return new Promise((resolve, reject) => {
-    chrome.storage.sync.get(
-      DEFAULT_SETTINGS as unknown as Record<string, unknown>,
-      (items) => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
-        }
-        resolve(items as unknown as Md2LarkSettings);
-      },
-    );
+    const defaults: Record<string, unknown> = { ...DEFAULT_SETTINGS };
+    chrome.storage.sync.get(defaults, (items) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+      resolve({ ...DEFAULT_SETTINGS, ...items } as Md2LarkSettings);
+    });
   });
 }
 

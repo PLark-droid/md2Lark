@@ -33,5 +33,12 @@ describe('postprocessHtml', () => {
     it('should handle empty input', () => {
       expect(postprocessHtml('')).toBe('');
     });
+
+    it('should not double-wrap already wrapped tables', () => {
+      const input = '<div style="overflow-x: auto; max-width: 100%;"><table><tr><td>cell</td></tr></table></div>';
+      const result = postprocessHtml(input);
+      const divCount = (result.match(/<div style="overflow-x: auto/g) || []).length;
+      expect(divCount).toBe(1);
+    });
   });
 });

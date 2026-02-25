@@ -25,6 +25,8 @@ const BADGE_CLEAR_DELAY_MS = 2_000;
 function flashBadge(text: string, color: string): void {
   void chrome.action.setBadgeText({ text });
   void chrome.action.setBadgeBackgroundColor({ color });
+  // NOTE: setTimeout may not fire if the service worker is terminated by Chrome.
+  // For a 2-second delay this is acceptable; use chrome.alarms for longer delays.
   setTimeout(() => {
     void chrome.action.setBadgeText({ text: '' });
   }, BADGE_CLEAR_DELAY_MS);

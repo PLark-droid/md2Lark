@@ -28,7 +28,6 @@ export type { StyleTemplate, StyleTemplateName } from './styles.js';
 
 // Types
 export type {
-  ParsedToken,
   ParserOptions,
   ParseResult,
   ParseMetadata,

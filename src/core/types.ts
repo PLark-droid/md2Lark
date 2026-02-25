@@ -7,14 +7,6 @@
 import type { Token } from 'marked';
 
 /**
- * A parsed token from the marked lexer.
- *
- * This is a direct re-export of `marked.Token` to decouple downstream
- * consumers from the specific marked library version.
- */
-export type ParsedToken = Token;
-
-/**
  * Options that control how Markdown source is parsed.
  */
 export interface ParserOptions {

@@ -28,14 +28,31 @@ function populateForm(settings: Md2LarkSettings): void {
 }
 
 /**
+ * Type guard for valid style template values.
+ */
+function isValidStyleTemplate(v: string): v is Md2LarkSettings['styleTemplate'] {
+  return ['minimal', 'enhanced', 'document'].includes(v);
+}
+
+/**
+ * Type guard for valid border style values.
+ */
+function isValidBorderStyle(v: string): v is Md2LarkSettings['tableBorderStyle'] {
+  return ['solid', 'dashed', 'none'].includes(v);
+}
+
+/**
  * Gather current form values into a settings object.
  */
 function gatherFormValues(): Partial<Md2LarkSettings> {
+  const rawTemplate = styleTemplateEl?.value ?? '';
+  const rawBorder = tableBorderStyleEl?.value ?? '';
+
   return {
     gfmEnabled: gfmEnabledEl?.checked ?? true,
     defaultCodeLanguage: defaultCodeLangEl?.value ?? '',
-    styleTemplate: (styleTemplateEl?.value as Md2LarkSettings['styleTemplate']) ?? 'minimal',
-    tableBorderStyle: (tableBorderStyleEl?.value as Md2LarkSettings['tableBorderStyle']) ?? 'solid',
+    styleTemplate: isValidStyleTemplate(rawTemplate) ? rawTemplate : 'minimal',
+    tableBorderStyle: isValidBorderStyle(rawBorder) ? rawBorder : 'solid',
     customCss: customCssEl?.value ?? '',
   };
 }

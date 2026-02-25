@@ -146,25 +146,7 @@ function writeUInt32LE(buf: Buffer, value: number, offset: number): void {
   buf[offset + 3] = (value >> 24) & 0xff;
 }
 
-/**
- * Compute CRC-32 for ZIP (same algorithm as used for PNG above but kept
- * separate for clarity).
- */
-function zipCrc32(buf: Buffer): number {
-  const table: number[] = [];
-  for (let i = 0; i < 256; i++) {
-    let c = i;
-    for (let j = 0; j < 8; j++) {
-      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    }
-    table[i] = c;
-  }
-  let crc = 0xffffffff;
-  for (let i = 0; i < buf.length; i++) {
-    crc = table[(crc ^ buf[i]) & 0xff] ^ (crc >>> 8);
-  }
-  return (crc ^ 0xffffffff) >>> 0;
-}
+// CRC-32 for ZIP reuses the crc32() function defined above for PNG.
 
 /**
  * Create a ZIP archive from a directory using only Node.js built-in modules.
@@ -182,7 +164,7 @@ async function createZipFromDirectory(srcDir: string, destZip: string): Promise<
     // Use forward slashes in ZIP entries (required by spec)
     const entryName = relPath.split(path.sep).join('/');
     const nameBuffer = Buffer.from(entryName, 'utf-8');
-    const crc = zipCrc32(fileData);
+    const crc = crc32(fileData);
     const uncompressedSize = fileData.length;
 
     // Compress with DEFLATE (raw, no zlib header)

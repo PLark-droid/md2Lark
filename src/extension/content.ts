@@ -16,21 +16,7 @@
 import { markdownToLarkHtml } from '../core/renderer.js';
 import { sanitizeHtml } from '../core/sanitizer.js';
 import { copyHtmlToClipboard } from './clipboard.js';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Strip HTML tags to produce a plain-text representation.
- *
- * Uses the browser's built-in DOMParser so that entities are decoded
- * correctly and nested structures are flattened to text content.
- */
-function htmlToPlainText(html: string): string {
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  return doc.body.textContent ?? '';
-}
+import { htmlToPlainText } from './utils.js';
 
 // ---------------------------------------------------------------------------
 // Message handler
@@ -78,9 +64,13 @@ if ((window as unknown as Record<string, unknown>).__md2lark_content_loaded) {
   chrome.runtime.onMessage.addListener(
     (
       message: unknown,
-      _sender: chrome.runtime.MessageSender,
+      sender: chrome.runtime.MessageSender,
       sendResponse: (response: { success: boolean; error?: string }) => void,
     ) => {
+      if (sender.id !== chrome.runtime.id) {
+        return;
+      }
+
       if (
         typeof message !== 'object' ||
         message === null ||

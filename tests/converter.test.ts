@@ -388,4 +388,23 @@ describe('convertToHtml', () => {
     expect(result.html).toContain('\u2705');
     expect(result.html).toContain('\u2B1C');
   });
+
+  // -- Security boundary tests (#47) ----------------------------------------
+
+  describe('security', () => {
+    it('should sanitize XSS in html output', () => {
+      const result = convertToHtml({ markdown: '<img src=x onerror=alert(1)>' });
+      expect(result.html).not.toContain('onerror');
+    });
+
+    it('should not contain script tags in html output', () => {
+      const result = convertToHtml({ markdown: '<script>alert(1)</script>' });
+      expect(result.html).not.toContain('<script');
+    });
+
+    it('legacy convert() should not expose raw markdown in body', () => {
+      const result = convert({ markdown: '<script>alert(1)</script>' });
+      expect(result.content[0].body.text).not.toContain('<script');
+    });
+  });
 });

@@ -24,7 +24,6 @@ export {
 } from './core/index';
 
 export type {
-  ParsedToken,
   ParserOptions,
   ParseResult,
   ParseMetadata,

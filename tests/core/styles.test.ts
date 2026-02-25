@@ -3,7 +3,7 @@ import {
   getElementStyle,
   STYLE_TEMPLATES,
 } from '../../src/core/styles';
-import type { StyleTemplate, StyleTemplateName } from '../../src/core/styles';
+import type { StyleTemplateName } from '../../src/core/styles';
 import { markdownToLarkHtml } from '../../src/core/renderer';
 
 // ---------------------------------------------------------------------------
@@ -194,6 +194,12 @@ describe('markdownToLarkHtml with style templates', () => {
     const html = markdownToLarkHtml('# Title', 'nonexistent');
     // Minimal has no h1 style, so no style should be added to h1
     expect(html).not.toContain('<h1 style=');
+  });
+
+  it('falls back to minimal for malicious template name', () => {
+    const result = markdownToLarkHtml('# Test', '<script>alert(1)</script>');
+    expect(result).not.toContain('<script>alert');
+    expect(result).toContain('<h1');
   });
 
   it('applies inline-code styles without affecting code blocks', () => {

@@ -15,6 +15,7 @@ import { copyHtmlToClipboard } from './clipboard.js';
 import { loadHistory, addHistoryEntry, deleteHistoryEntry, clearHistory } from './history.js';
 import type { HistoryEntry } from './history.js';
 import { loadSettings } from './storage.js';
+import { htmlToPlainText } from './utils.js';
 
 // ---------------------------------------------------------------------------
 // DOM references
@@ -75,12 +76,12 @@ const clearHistoryBtn = document.getElementById(
  * @param ms - The debounce delay in milliseconds.
  * @returns A debounced wrapper around `fn`.
  */
-function debounce<T extends (...args: unknown[]) => void>(
-  fn: T,
+function debounce<A extends unknown[]>(
+  fn: (...args: A) => void,
   ms: number,
-): (...args: Parameters<T>) => void {
+): (...args: A) => void {
   let timerId: ReturnType<typeof setTimeout> | undefined;
-  return (...args: Parameters<T>): void => {
+  return (...args: A): void => {
     if (timerId !== undefined) {
       clearTimeout(timerId);
     }
@@ -93,17 +94,6 @@ function debounce<T extends (...args: unknown[]) => void>(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Strip HTML tags to produce a plain-text representation.
- *
- * Uses the browser's built-in DOMParser so that entities are decoded
- * correctly and nested structures are flattened to text content.
- */
-function htmlToPlainText(html: string): string {
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  return doc.body.textContent ?? '';
-}
 
 /**
  * Show a status message for a limited duration.

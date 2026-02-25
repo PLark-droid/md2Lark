@@ -19,7 +19,7 @@ import {
   type RendererObject,
 } from 'marked';
 
-import { getStyleTemplate } from './styles.js';
+import { getStyleTemplate, STYLE_TEMPLATES } from './styles.js';
 import type { StyleTemplate } from './styles.js';
 
 // ---------------------------------------------------------------------------
@@ -43,13 +43,14 @@ function escapeHtml(text: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Inline style constants
+// Inline style constants (derived from the minimal style template)
 // ---------------------------------------------------------------------------
 
-const TABLE_STYLE = 'border-collapse: collapse;';
-const CELL_STYLE = 'border: 1px solid #d9d9d9; padding: 8px;';
-const BLOCKQUOTE_STYLE =
-  'border-left: 4px solid #d9d9d9; padding-left: 16px; color: #666;';
+const DEFAULT_STYLES = STYLE_TEMPLATES.minimal.styles;
+
+const TABLE_STYLE = DEFAULT_STYLES.table;
+const CELL_STYLE = DEFAULT_STYLES['th,td'];
+const BLOCKQUOTE_STYLE = DEFAULT_STYLES.blockquote;
 
 // ---------------------------------------------------------------------------
 // LarkRenderer class
@@ -132,7 +133,7 @@ const larkRendererOverrides: RendererObject = {
   list(this: Renderer, token: Tokens.List): string {
     const tag = token.ordered ? 'ol' : 'ul';
     const startAttr =
-      token.ordered && token.start !== 1 && token.start !== ''
+      token.ordered && typeof token.start === 'number' && token.start !== 1
         ? ` start="${String(token.start)}"`
         : '';
 
@@ -233,7 +234,11 @@ const larkRendererOverrides: RendererObject = {
   link(this: Renderer, { href, title, tokens }: Tokens.Link): string {
     const text = this.parser.parseInline(tokens);
     const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
-    return `<a href="${escapeHtml(href)}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`;
+    // Sanitize dangerous URI schemes before rendering.
+    const safeHref = /^\s*(?:javascript|vbscript|data)\s*:/i.test(href)
+      ? ''
+      : escapeHtml(href);
+    return `<a href="${safeHref}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`;
   },
 
   image({ href, title, text }: Tokens.Image): string {
@@ -251,6 +256,7 @@ const larkRendererOverrides: RendererObject = {
   },
 
   html({ text }: Tokens.HTML | Tokens.Tag): string {
+    // SECURITY: Raw HTML passes through here. sanitizeHtml() MUST run on final output.
     return text;
   },
 };
@@ -362,7 +368,7 @@ function applyStyleTemplate(html: string, template: StyleTemplate): string {
       );
       // Add style to tags without one (but with other attributes).
       result = result.replace(
-        new RegExp(`<${tag}(\\s+(?!style)[^>]*)>`, 'g'),
+        new RegExp(`<${tag}((?![^>]*style=)[^>]*)>`, 'g'),
         `<${tag} style="${style}"$1>`,
       );
       // Add style to bare tags.
