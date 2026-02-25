@@ -10,7 +10,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "sourceMap": false
+    "sourceMap": false,
+    "types": ["chrome"]
   },
   "include": ["src/extension/**/*", "src/core/**/*"]
 }

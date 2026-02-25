@@ -7,22 +7,38 @@
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-  <header>
-    <h1>md2Lark</h1>
-    <p class="subtitle">Markdown to Lark converter</p>
-  </header>
-
-  <main>
-    <textarea
-      id="markdown-input"
-      placeholder="Paste your Markdown here..."
-      spellcheck="false"
-    ></textarea>
-
-    <button id="convert-btn" type="button">Convert &amp; Copy</button>
-
-    <div id="status" class="status" aria-live="polite"></div>
-  </main>
+  <div class="container">
+    <header>
+      <h1>md2Lark</h1>
+      <span class="subtitle">Markdown → Lark Converter</span>
+    </header>
+    <div class="editor-area">
+      <div class="input-pane">
+        <label for="markdown-input">Markdown</label>
+        <textarea
+          id="markdown-input"
+          placeholder="Paste your Markdown here..."
+          spellcheck="false"
+        ></textarea>
+      </div>
+      <div class="preview-pane">
+        <div class="preview-tabs">
+          <button class="tab active" data-tab="preview">Preview</button>
+          <button class="tab" data-tab="source">HTML Source</button>
+        </div>
+        <div class="tab-content" id="preview-tab">
+          <iframe id="preview-frame" sandbox="allow-same-origin"></iframe>
+        </div>
+        <div class="tab-content hidden" id="source-tab">
+          <pre id="html-source"><code></code></pre>
+        </div>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="convert-btn" type="button">Convert &amp; Copy</button>
+      <span id="status" class="status" aria-live="polite"></span>
+    </div>
+  </div>
 
   <script src="popup.js"></script>
 </body>

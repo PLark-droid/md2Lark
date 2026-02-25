@@ -34,7 +34,7 @@
 }
 
 body {
-  width: 500px;
+  width: 680px;
   max-height: 500px;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
     Roboto, sans-serif;
@@ -42,8 +42,19 @@ body {
   line-height: 1.5;
   color: var(--color-text);
   background-color: var(--color-bg);
-  padding: 16px;
   overflow: hidden;
+}
+
+/* ------------------------------------------------------------------
+ * Container
+ * ------------------------------------------------------------------ */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 500px;
+  padding: 16px;
 }
 
 /* ------------------------------------------------------------------
@@ -51,7 +62,11 @@ body {
  * ------------------------------------------------------------------ */
 
 header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   margin-bottom: 12px;
+  flex-shrink: 0;
 }
 
 header h1 {
@@ -63,17 +78,33 @@ header h1 {
 header .subtitle {
   font-size: 12px;
   color: var(--color-text-secondary);
-  margin-top: 2px;
 }
 
 /* ------------------------------------------------------------------
- * Main content
+ * Editor area (split pane)
  * ------------------------------------------------------------------ */
 
-main {
+.editor-area {
+  display: flex;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+.input-pane,
+.preview-pane {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  min-width: 0;
+}
+
+.input-pane label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+  flex-shrink: 0;
 }
 
 /* ------------------------------------------------------------------
@@ -82,7 +113,8 @@ main {
 
 #markdown-input {
   width: 100%;
-  height: 280px;
+  flex: 1;
+  height: 300px;
   padding: 12px;
   font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', 'Menlo',
     monospace;
@@ -106,13 +138,119 @@ main {
 }
 
 /* ------------------------------------------------------------------
+ * Preview tabs
+ * ------------------------------------------------------------------ */
+
+.preview-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.preview-tabs .tab {
+  flex: 1;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-bottom: none;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.preview-tabs .tab:first-child {
+  border-radius: var(--radius) 0 0 0;
+}
+
+.preview-tabs .tab:last-child {
+  border-radius: 0 var(--radius) 0 0;
+  border-left: none;
+}
+
+.preview-tabs .tab.active {
+  color: var(--color-primary);
+  background-color: var(--color-bg);
+}
+
+.preview-tabs .tab:hover:not(.active) {
+  color: var(--color-text);
+}
+
+/* ------------------------------------------------------------------
+ * Tab content
+ * ------------------------------------------------------------------ */
+
+.tab-content {
+  flex: 1;
+  border: 1px solid var(--color-border);
+  border-radius: 0 0 var(--radius) var(--radius);
+  overflow: hidden;
+  height: 300px;
+}
+
+.tab-content.hidden {
+  display: none;
+}
+
+/* ------------------------------------------------------------------
+ * Preview iframe
+ * ------------------------------------------------------------------ */
+
+#preview-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background-color: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  #preview-frame {
+    background-color: #ffffff;
+  }
+}
+
+/* ------------------------------------------------------------------
+ * HTML source view
+ * ------------------------------------------------------------------ */
+
+#html-source {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 12px;
+  font-family: 'SFMono-Regular', 'Consolas', 'Liberation Mono', 'Menlo',
+    monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text);
+  background-color: var(--color-surface);
+  overflow: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* ------------------------------------------------------------------
+ * Actions bar
+ * ------------------------------------------------------------------ */
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  flex-shrink: 0;
+}
+
+/* ------------------------------------------------------------------
  * Convert button
  * ------------------------------------------------------------------ */
 
 #convert-btn {
-  width: 100%;
-  padding: 10px 16px;
-  font-size: 14px;
+  padding: 8px 20px;
+  font-size: 13px;
   font-weight: 600;
   color: #ffffff;
   background-color: var(--color-primary);
@@ -120,6 +258,8 @@ main {
   border-radius: var(--radius);
   cursor: pointer;
   transition: background-color 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 #convert-btn:hover {
@@ -140,9 +280,7 @@ main {
  * ------------------------------------------------------------------ */
 
 .status {
-  min-height: 20px;
   font-size: 13px;
-  text-align: center;
   transition: opacity 0.2s ease;
 }
 

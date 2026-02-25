@@ -3,7 +3,10 @@
   "name": "md2Lark",
   "version": "0.1.0",
   "description": "Convert Markdown to Lark-optimized format for perfect paste",
-  "permissions": ["clipboardWrite", "activeTab"],
+  "permissions": ["clipboardWrite", "activeTab", "scripting"],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_popup": "popup.html",
     "default_icon": {

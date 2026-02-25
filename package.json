@@ -35,6 +35,7 @@
     "node": ">=18.0.0"
   },
   "devDependencies": {
+    "@types/chrome": "^0.1.37",
     "@types/jest": "^29.5.0",
     "@types/marked": "^5.0.2",
     "@types/node": "^20.0.0",

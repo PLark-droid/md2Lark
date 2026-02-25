@@ -117,19 +117,27 @@ async function build(): Promise<void> {
   ensureDir(DIST_EXT);
   ensureDir(DIST_ICONS);
 
-  // 2. Bundle popup.ts with esbuild.
-  console.log('  Bundling popup.ts...');
-  await esbuild.build({
-    entryPoints: [path.join(SRC_EXT, 'popup.ts')],
-    bundle: true,
-    outfile: path.join(DIST_EXT, 'popup.js'),
-    format: 'iife',
-    platform: 'browser',
-    target: 'es2022',
-    minify: false,
-    sourcemap: false,
-  });
-  console.log(`  Bundled:  ${path.relative(ROOT, path.join(DIST_EXT, 'popup.js'))}`);
+  // 2. Bundle TypeScript entry points with esbuild.
+  const entryPoints = [
+    { name: 'popup', src: path.join(SRC_EXT, 'popup.ts') },
+    { name: 'background', src: path.join(SRC_EXT, 'background.ts') },
+    { name: 'content', src: path.join(SRC_EXT, 'content.ts') },
+  ];
+
+  for (const entry of entryPoints) {
+    console.log(`  Bundling ${entry.name}.ts...`);
+    await esbuild.build({
+      entryPoints: [entry.src],
+      bundle: true,
+      outfile: path.join(DIST_EXT, `${entry.name}.js`),
+      format: 'iife',
+      platform: 'browser',
+      target: 'es2022',
+      minify: false,
+      sourcemap: false,
+    });
+    console.log(`  Bundled:  ${path.relative(ROOT, path.join(DIST_EXT, `${entry.name}.js`))}`);
+  }
 
   // 3. Copy static assets.
   console.log('\n  Copying static assets...');
