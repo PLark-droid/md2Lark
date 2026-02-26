@@ -22,6 +22,7 @@ import {
 
 import { getStyleTemplate, STYLE_TEMPLATES } from './styles.js';
 import type { StyleTemplate } from './styles.js';
+import { sanitizeHtml } from './sanitizer.js';
 
 // ---------------------------------------------------------------------------
 // HTML entity escaping
@@ -49,17 +50,22 @@ function escapeHtml(text: string): string {
 
 /**
  * Estimate the visual width of text content for column sizing.
- * CJK characters count as ~2 units, ASCII as ~1, to approximate proportional width.
+ * CJK and other East-Asian wide characters count as ~2 units, ASCII as ~1,
+ * to approximate proportional width in a monospaced or proportional layout.
  */
 function measureTextWidth(text: string): number {
   let width = 0;
   for (const ch of text) {
     const code = ch.codePointAt(0) ?? 0;
-    // CJK Unified Ideographs, Hiragana, Katakana, Fullwidth forms
     if (
-      (code >= 0x3000 && code <= 0x9fff) ||
-      (code >= 0xf900 && code <= 0xfaff) ||
-      (code >= 0xff00 && code <= 0xff60)
+      (code >= 0x1100 && code <= 0x115f) ||   // Hangul Jamo
+      (code >= 0x2e80 && code <= 0x9fff) ||    // CJK Radicals Supplement .. CJK Unified Ideographs
+      (code >= 0xac00 && code <= 0xd7af) ||    // Hangul Syllables
+      (code >= 0xf900 && code <= 0xfaff) ||    // CJK Compatibility Ideographs
+      (code >= 0xfe10 && code <= 0xfe6f) ||    // CJK Compatibility Forms
+      (code >= 0xff01 && code <= 0xff60) ||    // Fullwidth Latin / Halfwidth CJK
+      (code >= 0xffe0 && code <= 0xffe6) ||    // Fullwidth Currency Symbols
+      (code >= 0x20000 && code <= 0x2fa1f)     // CJK Unified Ideographs Extension B+
     ) {
       width += 2;
     } else {
@@ -100,7 +106,7 @@ function computeColumnWidths(colMaxLen: number[]): number[] {
 
   // Fix rounding drift so total is exactly 100.
   const drift = 100 - widths.reduce((a, b) => a + b, 0);
-  if (drift !== 0) {
+  if (Math.abs(drift) > 0.001) {
     const maxIdx = widths.indexOf(Math.max(...widths));
     widths[maxIdx] = Math.round((widths[maxIdx] + drift) * 10) / 10;
   }
@@ -165,16 +171,34 @@ export class LarkRenderer {
 
   /**
    * Convert raw Markdown to Lark-optimised HTML.
+   *
+   * @param markdown - Raw Markdown source string.
+   * @param options  - Optional settings. When `sanitize` is not explicitly
+   *                   `false`, the output is passed through {@link sanitizeHtml}
+   *                   to strip dangerous HTML constructs.
    */
-  render(markdown: string): string {
-    return this.marked.parse(markdown, { async: false }) as string;
+  render(markdown: string, options?: { sanitize?: boolean }): string {
+    let html = this.marked.parse(markdown, { async: false }) as string;
+    if (options?.sanitize !== false) {
+      html = sanitizeHtml(html);
+    }
+    return html;
   }
 
   /**
    * Render a pre-lexed token list into Lark-optimised HTML.
+   *
+   * @param tokens  - Token array produced by `marked.lexer()` or `Lexer.lex()`.
+   * @param options - Optional settings. When `sanitize` is not explicitly
+   *                  `false`, the output is passed through {@link sanitizeHtml}
+   *                  to strip dangerous HTML constructs.
    */
-  renderTokens(tokens: Token[] | TokensList): string {
-    return this.marked.parser(tokens) as string;
+  renderTokens(tokens: Token[] | TokensList, options?: { sanitize?: boolean }): string {
+    let html = this.marked.parser(tokens) as string;
+    if (options?.sanitize !== false) {
+      html = sanitizeHtml(html);
+    }
+    return html;
   }
 }
 
@@ -320,6 +344,9 @@ const larkRendererOverrides: RendererObject = {
   },
 
   tablecell(this: Renderer, cell: Tokens.TableCell): string {
+    // Fallback: called by marked when table() does not handle cells directly.
+    // Currently table() uses renderCellWithWidth() for all cells, so this
+    // method only runs if marked's internal API bypasses the table() override.
     const tag = cell.header ? 'th' : 'td';
     const alignAttr = cell.align ? ` align="${cell.align}"` : '';
     const content = this.parser.parseInline(cell.tokens);

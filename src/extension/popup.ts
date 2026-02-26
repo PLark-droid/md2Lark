@@ -40,11 +40,23 @@ const clearHistoryBtn = document.getElementById('clear-history-btn') as HTMLButt
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Timer ID for the status message auto-clear timeout. */
+let statusTimerId: ReturnType<typeof setTimeout> | undefined;
+
+/** Timer ID for the convert button text reset timeout. */
+let buttonTimerId: ReturnType<typeof setTimeout> | undefined;
+
 /**
  * Show a status message for a limited duration.
+ *
+ * Clears any previously scheduled timers so that rapid consecutive calls
+ * do not leave stale timeouts that reset the UI unexpectedly.
  */
 function showStatus(message: string, kind: 'success' | 'error', durationMs = 2000): void {
   if (!statusEl) return;
+
+  if (statusTimerId) clearTimeout(statusTimerId);
+  if (buttonTimerId) clearTimeout(buttonTimerId);
 
   statusEl.textContent = message;
   statusEl.className = `status status--${kind}`;
@@ -53,13 +65,13 @@ function showStatus(message: string, kind: 'success' | 'error', durationMs = 200
   if (kind === 'success' && convertBtn) {
     convertBtn.classList.add('copied');
     convertBtn.textContent = 'Copied!';
-    setTimeout(() => {
+    buttonTimerId = setTimeout(() => {
       convertBtn.classList.remove('copied');
       convertBtn.textContent = 'Convert & Copy';
     }, durationMs);
   }
 
-  setTimeout(() => {
+  statusTimerId = setTimeout(() => {
     statusEl.textContent = '';
     statusEl.className = 'status';
   }, durationMs);
@@ -544,6 +556,7 @@ if (historyBtn) {
 // Clear history button.
 if (clearHistoryBtn) {
   clearHistoryBtn.addEventListener('click', () => {
+    if (!confirm('Clear all history?')) return;
     void (async () => {
       await clearHistory();
       renderHistoryList([]);

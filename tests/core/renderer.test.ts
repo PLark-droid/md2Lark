@@ -230,6 +230,48 @@ describe('LarkRenderer - tables', () => {
     expect(html).toContain('align="center"');
     expect(html).toContain('align="right"');
   });
+
+  it('assigns full width to single-column table', () => {
+    const md = '| Only |\n| --- |\n| val |\n';
+    const html = render(md);
+    const matches = [...html.matchAll(/data-colwidth="(\d+)"/g)];
+    expect(matches.length).toBeGreaterThanOrEqual(1);
+    expect(parseInt(matches[0][1])).toBe(720); // LARK_TABLE_WIDTH_PX
+  });
+
+  it('handles many columns with minimum width constraint', () => {
+    const cols = Array(10).fill('C').join(' | ');
+    const sep = Array(10).fill('---').join(' | ');
+    const md = '| ' + cols + ' |\n| ' + sep + ' |\n| ' + cols + ' |\n';
+    const html = render(md);
+    const matches = [...html.matchAll(/data-colwidth="(\d+)"/g)];
+    // 10 header cells + 10 body cells = 20 matches
+    expect(matches.length).toBe(20);
+    // Each column should have at least ~8% of 720px ≈ 57px
+    matches.forEach(m => {
+      expect(parseInt(m[1])).toBeGreaterThanOrEqual(50);
+    });
+  });
+
+  it('distributes equal width for uniform content', () => {
+    const md = '| AA | BB | CC |\n| --- | --- | --- |\n| xx | yy | zz |\n';
+    const html = render(md);
+    const matches = [...html.matchAll(/<th[^>]*data-colwidth="(\d+)"/g)];
+    expect(matches.length).toBe(3);
+    // All columns should have equal width
+    const w1 = parseInt(matches[0][1]);
+    const w2 = parseInt(matches[1][1]);
+    const w3 = parseInt(matches[2][1]);
+    expect(w1).toBe(w2);
+    expect(w2).toBe(w3);
+  });
+
+  it('handles empty cells gracefully', () => {
+    const md = '| A | B |\n| --- | --- |\n|  | data |\n';
+    const html = render(md);
+    expect(html).toContain('<table');
+    expect(html).toContain('data-colwidth=');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -433,5 +475,12 @@ describe('LarkRenderer - class export', () => {
     const html = renderer.render('# Hello **world**');
     expect(html).toContain('<h1');
     expect(html).toContain('<strong>world</strong>');
+  });
+
+  it('renders task list checkbox via LarkRenderer.render()', () => {
+    const renderer = new LarkRenderer();
+    const html = renderer.render('- [x] Done\n- [ ] Todo');
+    expect(html).toContain('&#9745;'); // checked
+    expect(html).toContain('&#9744;'); // unchecked
   });
 });

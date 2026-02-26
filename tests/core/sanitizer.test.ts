@@ -392,3 +392,36 @@ describe('sanitizeHtml - early exit for plain text', () => {
     expect(sanitizeHtml(input)).toBe(input);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Additional attack vectors (#P2 security)
+// ---------------------------------------------------------------------------
+
+describe('sanitizeHtml - additional attack vectors', () => {
+  it('removes <math> tags (MathML XSS)', () => {
+    const input = '<math><maction actiontype="statusline#"><mtext>XSS</mtext></maction></math>';
+    const result = sanitizeHtml(input);
+    expect(result).not.toContain('<math');
+    expect(result).not.toContain('<maction');
+  });
+
+  it('removes <template> tags', () => {
+    const input = '<template><script>alert(1)</script></template>';
+    const result = sanitizeHtml(input);
+    expect(result).not.toContain('<template');
+    expect(result).not.toContain('<script');
+  });
+
+  it('strips null bytes used for sanitizer bypass', () => {
+    const input = '<scr\x00ipt>alert(1)</scr\x00ipt>';
+    const result = sanitizeHtml(input);
+    expect(result).not.toContain('<script');
+    expect(result).not.toContain('alert(1)');
+  });
+
+  it('handles details/summary with embedded scripts', () => {
+    const input = '<details><summary>Click</summary><script>alert(1)</script></details>';
+    const result = sanitizeHtml(input);
+    expect(result).not.toContain('<script');
+  });
+});

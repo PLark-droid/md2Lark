@@ -23,6 +23,8 @@ const DANGEROUS_TAGS = [
   'base',
   'meta',
   'svg',
+  'math',
+  'template',
 ] as const;
 
 /**
@@ -88,6 +90,9 @@ export function sanitizeHtml(html: string): string {
   if (!html.includes('<')) return html;
 
   let result = html;
+
+  // Strip null bytes which can be used to bypass sanitization filters.
+  result = result.replace(/\x00/g, '');
 
   // 1. Strip dangerous tags using pre-compiled patterns.
   for (const [pairedRe, selfClosingRe] of DANGEROUS_TAG_PATTERNS) {

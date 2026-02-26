@@ -191,11 +191,13 @@ header .subtitle {
   transition: opacity 0.2s ease;
 }
 
-/* Focus visible overrides for input elements */
+/* Focus visible overrides for input elements.
+ * Use transparent outline instead of none so Windows High Contrast Mode
+ * still renders a visible focus indicator. */
 .text-input:focus-visible,
 .select-input:focus-visible,
 .code-input:focus-visible {
-  outline: none;
+  outline: 2px solid transparent;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px rgba(51, 112, 255, 0.2);
 }

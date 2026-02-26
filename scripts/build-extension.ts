@@ -264,7 +264,7 @@ async function build(): Promise<void> {
       platform: 'browser',
       target: 'es2022',
       minify: IS_PROD,
-      sourcemap: false,
+      sourcemap: !IS_PROD,
     });
     console.log(`  Bundled:  ${path.relative(ROOT, path.join(DIST_EXT, `${entry.name}.js`))}`);
   }

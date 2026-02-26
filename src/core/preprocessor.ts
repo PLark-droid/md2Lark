@@ -123,6 +123,12 @@ export function preprocessMarkdown(markdown: string): string {
     return `\x00CODEBLOCK${codeBlocks.length - 1}\x00`;
   });
 
+  // Protect inline code (single backtick) from modification.
+  result = result.replace(/`[^`]+`/g, (match) => {
+    codeBlocks.push(match);
+    return `\x00CODEBLOCK${codeBlocks.length - 1}\x00`;
+  });
+
   // Apply transformations on unprotected text.
   result = normalizeBlankLines(result);
   result = convertLatexToCodeFallback(result);
