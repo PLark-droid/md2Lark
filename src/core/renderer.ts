@@ -141,8 +141,9 @@ function renderCellWithWidth(
   const content = parser.parseInline(cell.tokens);
   const pxWidth = Math.round((widthPercent / 100) * LARK_TABLE_WIDTH_PX);
   const widthStyle = `width: ${pxWidth}px; min-width: ${pxWidth}px;`;
-  // data-colwidth is used by ProseMirror-based editors (including Lark).
-  return `<${tag} style="${CELL_STYLE} ${widthStyle}" data-colwidth="${pxWidth}"${alignAttr}>${content}</${tag}>`;
+  // Use both CSS style, HTML width attribute, and data-colwidth for maximum
+  // compatibility across editors. Lark strips CSS but may honour HTML attrs.
+  return `<${tag} width="${pxWidth}" style="${CELL_STYLE} ${widthStyle}" data-colwidth="${pxWidth}"${alignAttr}>${content}</${tag}>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -334,8 +335,10 @@ const larkRendererOverrides: RendererObject = {
       }).join('\n') +
       '\n</colgroup>\n';
 
+    // Use both HTML width attribute and CSS for maximum compatibility.
+    // Lark strips CSS styles but may honour HTML table width attribute.
     return (
-      `<table style="${TABLE_STYLE} width: ${LARK_TABLE_WIDTH_PX}px; table-layout: fixed;">\n` +
+      `<table width="${LARK_TABLE_WIDTH_PX}" style="${TABLE_STYLE} width: ${LARK_TABLE_WIDTH_PX}px; table-layout: fixed;">\n` +
       colgroup +
       `<thead>\n<tr>${headerCells}</tr>\n</thead>\n` +
       tbody +
@@ -506,12 +509,18 @@ function applyStyleTemplate(html: string, template: StyleTemplate): string {
     }
 
     if (selector === 'th,td') {
-      // Apply to both th and td.
+      // Apply to both th and td, preserving width properties for table sizing.
       for (const tag of ['th', 'td']) {
-        const [replaceStyleRe, , bareTagRe] = getTagRegexes(tag);
-        replaceStyleRe.lastIndex = 0;
+        result = result.replace(
+          new RegExp(`<${tag}\\s+style="([^"]*)"`, 'g'),
+          (_m: string, existing: string) => {
+            const widthProps = existing.match(/(?:(?:min-)?width|table-layout):\s*[^;]+;?\s*/g);
+            const preserved = widthProps ? ' ' + widthProps.map((p: string) => p.trim().replace(/;?\s*$/, ';')).join(' ') : '';
+            return `<${tag} style="${style}${preserved}"`;
+          },
+        );
+        const [, , bareTagRe] = getTagRegexes(tag);
         bareTagRe.lastIndex = 0;
-        result = result.replace(replaceStyleRe, `<${tag} style="${style}"`);
         result = result.replace(bareTagRe, `<${tag} style="${style}">`);
       }
       continue;
@@ -525,9 +534,22 @@ function applyStyleTemplate(html: string, template: StyleTemplate): string {
       addStyleRe.lastIndex = 0;
       bareTagRe.lastIndex = 0;
 
-      result = result.replace(replaceStyleRe, `<${tag} style="${style}"`);
-      result = result.replace(addStyleRe, `<${tag} style="${style}"$1>`);
-      result = result.replace(bareTagRe, `<${tag} style="${style}">`);
+      if (tag === 'table') {
+        // Preserve width and table-layout when applying template styles to tables.
+        result = result.replace(
+          /<table\s+style="([^"]*)"/g,
+          (_m: string, existing: string) => {
+            const widthProps = existing.match(/(?:(?:min-)?width|table-layout):\s*[^;]+;?\s*/g);
+            const preserved = widthProps ? ' ' + widthProps.map((p: string) => p.trim().replace(/;?\s*$/, ';')).join(' ') : '';
+            return `<table style="${style}${preserved}"`;
+          },
+        );
+        result = result.replace(/<table>/g, `<table style="${style}">`);
+      } else {
+        result = result.replace(replaceStyleRe, `<${tag} style="${style}"`);
+        result = result.replace(addStyleRe, `<${tag} style="${style}"$1>`);
+        result = result.replace(bareTagRe, `<${tag} style="${style}">`);
+      }
     }
   }
 

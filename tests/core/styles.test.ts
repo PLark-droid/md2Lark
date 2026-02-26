@@ -116,16 +116,20 @@ describe('markdownToLarkHtml with style templates', () => {
     expect(html).toContain('line-height: 1.3');
   });
 
-  it('applies table styles from the minimal template', () => {
+  it('applies table styles from the minimal template preserving width', () => {
     const md = '| A | B |\n|---|---|\n| 1 | 2 |';
     const html = markdownToLarkHtml(md, 'minimal');
-    expect(html).toContain('<table style="border-collapse: collapse;">');
+    expect(html).toContain('border-collapse: collapse;');
+    // Width properties are preserved from the renderer's table output.
+    expect(html).toContain('width: 720px;');
+    expect(html).toContain('table-layout: fixed;');
   });
 
-  it('applies enhanced table styles with width 100%', () => {
+  it('applies enhanced table styles preserving width', () => {
     const md = '| A | B |\n|---|---|\n| 1 | 2 |';
     const html = markdownToLarkHtml(md, 'enhanced');
-    expect(html).toContain('width: 100%');
+    // Enhanced template sets width: 100% but renderer width is preserved too.
+    expect(html).toContain('width: 720px;');
   });
 
   it('applies enhanced th background color', () => {
