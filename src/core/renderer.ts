@@ -12,6 +12,7 @@
 
 import {
   Marked,
+  Parser,
   Renderer,
   type Token,
   type TokensList,
@@ -43,6 +44,71 @@ function escapeHtml(text: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Table column width helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Estimate the visual width of text content for column sizing.
+ * CJK characters count as ~2 units, ASCII as ~1, to approximate proportional width.
+ */
+function measureTextWidth(text: string): number {
+  let width = 0;
+  for (const ch of text) {
+    const code = ch.codePointAt(0) ?? 0;
+    // CJK Unified Ideographs, Hiragana, Katakana, Fullwidth forms
+    if (
+      (code >= 0x3000 && code <= 0x9fff) ||
+      (code >= 0xf900 && code <= 0xfaff) ||
+      (code >= 0xff00 && code <= 0xff60)
+    ) {
+      width += 2;
+    } else {
+      width += 1;
+    }
+  }
+  return width;
+}
+
+/**
+ * Convert raw character-width estimates into percentage column widths.
+ *
+ * Applies minimum/maximum constraints and normalizes so columns sum to 100%.
+ * Ensures narrow columns (like "ID") get enough space to be readable, while
+ * wide columns (like "Description") expand proportionally.
+ */
+function computeColumnWidths(colMaxLen: number[]): number[] {
+  const colCount = colMaxLen.length;
+  if (colCount === 0) return [];
+  if (colCount === 1) return [100];
+
+  const MIN_COL_WIDTH = 8; // minimum % per column
+  const MAX_COL_WIDTH = 60; // maximum % per column
+
+  // Ensure at least 1 unit per column to avoid division by zero.
+  const adjusted = colMaxLen.map((w) => Math.max(w, 2));
+  const total = adjusted.reduce((a, b) => a + b, 0);
+
+  // Proportional allocation with clamping.
+  let widths = adjusted.map((w) => {
+    const pct = (w / total) * 100;
+    return Math.max(MIN_COL_WIDTH, Math.min(MAX_COL_WIDTH, pct));
+  });
+
+  // Normalize to sum to 100%.
+  const sum = widths.reduce((a, b) => a + b, 0);
+  widths = widths.map((w) => Math.round((w / sum) * 100 * 10) / 10);
+
+  // Fix rounding drift so total is exactly 100.
+  const drift = 100 - widths.reduce((a, b) => a + b, 0);
+  if (drift !== 0) {
+    const maxIdx = widths.indexOf(Math.max(...widths));
+    widths[maxIdx] = Math.round((widths[maxIdx] + drift) * 10) / 10;
+  }
+
+  return widths;
+}
+
+// ---------------------------------------------------------------------------
 // Inline style constants (derived from the minimal style template)
 // ---------------------------------------------------------------------------
 
@@ -51,6 +117,22 @@ const DEFAULT_STYLES = STYLE_TEMPLATES.minimal.styles;
 const TABLE_STYLE = DEFAULT_STYLES.table;
 const CELL_STYLE = DEFAULT_STYLES['th,td'];
 const BLOCKQUOTE_STYLE = DEFAULT_STYLES.blockquote;
+
+/**
+ * Render a table cell with an explicit width style.
+ * Standalone function (not on RendererObject) to avoid extending the marked API.
+ */
+function renderCellWithWidth(
+  parser: Parser,
+  cell: Tokens.TableCell,
+  widthPercent: number,
+): string {
+  const tag = cell.header ? 'th' : 'td';
+  const alignAttr = cell.align ? ` align="${cell.align}"` : '';
+  const content = parser.parseInline(cell.tokens);
+  const widthStyle = `width: ${widthPercent}%; min-width: ${Math.max(60, widthPercent * 3)}px;`;
+  return `<${tag} style="${CELL_STYLE} ${widthStyle}"${alignAttr}>${content}</${tag}>`;
+}
 
 // ---------------------------------------------------------------------------
 // LarkRenderer class
@@ -176,18 +258,36 @@ const larkRendererOverrides: RendererObject = {
   },
 
   table(this: Renderer, token: Tokens.Table): string {
+    const colCount = token.header.length;
+
+    // Estimate each column's content width by scanning header + all body rows.
+    const colMaxLen: number[] = new Array(colCount).fill(0);
+    for (let i = 0; i < colCount; i++) {
+      const headerText = token.header[i].text ?? '';
+      colMaxLen[i] = measureTextWidth(headerText);
+    }
+    for (const row of token.rows) {
+      for (let i = 0; i < row.length && i < colCount; i++) {
+        const cellText = row[i].text ?? '';
+        colMaxLen[i] = Math.max(colMaxLen[i], measureTextWidth(cellText));
+      }
+    }
+
+    // Convert character widths to percentage-based column widths.
+    const colWidths = computeColumnWidths(colMaxLen);
+
     // Build header row
     let headerCells = '';
-    for (const cell of token.header) {
-      headerCells += this.tablecell(cell);
+    for (let i = 0; i < colCount; i++) {
+      headerCells += renderCellWithWidth(this.parser, token.header[i], colWidths[i]);
     }
 
     // Build body rows
     let bodyRows = '';
     for (const row of token.rows) {
       let rowCells = '';
-      for (const cell of row) {
-        rowCells += this.tablecell(cell);
+      for (let i = 0; i < row.length && i < colCount; i++) {
+        rowCells += renderCellWithWidth(this.parser, row[i], colWidths[i]);
       }
       bodyRows += `<tr>${rowCells}</tr>\n`;
     }
@@ -198,7 +298,7 @@ const larkRendererOverrides: RendererObject = {
     }
 
     return (
-      `<table style="${TABLE_STYLE}">\n` +
+      `<table style="${TABLE_STYLE} width: 100%;">\n` +
       `<thead>\n<tr>${headerCells}</tr>\n</thead>\n` +
       tbody +
       `</table>\n`
