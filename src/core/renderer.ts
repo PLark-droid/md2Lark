@@ -122,6 +122,9 @@ const BLOCKQUOTE_STYLE = DEFAULT_STYLES.blockquote;
  * Render a table cell with an explicit width style.
  * Standalone function (not on RendererObject) to avoid extending the marked API.
  */
+/** Total table width in pixels assumed for Lark paste (typical doc width). */
+const LARK_TABLE_WIDTH_PX = 720;
+
 function renderCellWithWidth(
   parser: Parser,
   cell: Tokens.TableCell,
@@ -130,9 +133,10 @@ function renderCellWithWidth(
   const tag = cell.header ? 'th' : 'td';
   const alignAttr = cell.align ? ` align="${cell.align}"` : '';
   const content = parser.parseInline(cell.tokens);
-  const minWidth = Math.round(Math.max(60, widthPercent * 3));
-  const widthStyle = `width: ${widthPercent}%; min-width: ${minWidth}px;`;
-  return `<${tag} style="${CELL_STYLE} ${widthStyle}"${alignAttr}>${content}</${tag}>`;
+  const pxWidth = Math.round((widthPercent / 100) * LARK_TABLE_WIDTH_PX);
+  const widthStyle = `width: ${pxWidth}px; min-width: ${pxWidth}px;`;
+  // data-colwidth is used by ProseMirror-based editors (including Lark).
+  return `<${tag} style="${CELL_STYLE} ${widthStyle}" data-colwidth="${pxWidth}"${alignAttr}>${content}</${tag}>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -298,13 +302,16 @@ const larkRendererOverrides: RendererObject = {
       tbody = `<tbody>\n${bodyRows}</tbody>\n`;
     }
 
-    // Build colgroup for column width hints (respected by Lark on paste).
+    // Build colgroup with pixel widths for Lark paste compatibility.
     const colgroup = '<colgroup>\n' +
-      colWidths.map((w) => `<col style="width: ${w}%;" />`).join('\n') +
+      colWidths.map((w) => {
+        const px = Math.round((w / 100) * LARK_TABLE_WIDTH_PX);
+        return `<col width="${px}" style="width: ${px}px;" />`;
+      }).join('\n') +
       '\n</colgroup>\n';
 
     return (
-      `<table style="${TABLE_STYLE} width: 100%; table-layout: fixed;">\n` +
+      `<table style="${TABLE_STYLE} width: ${LARK_TABLE_WIDTH_PX}px; table-layout: fixed;">\n` +
       colgroup +
       `<thead>\n<tr>${headerCells}</tr>\n</thead>\n` +
       tbody +

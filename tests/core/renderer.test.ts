@@ -181,27 +181,30 @@ describe('LarkRenderer - tables', () => {
     expect(html).toContain('Alice');
   });
 
-  it('adds inline border-collapse style and width on table', () => {
+  it('adds inline border-collapse style and pixel width on table', () => {
     const html = render(tableMd);
     expect(html).toContain('border-collapse: collapse;');
-    expect(html).toContain('width: 100%;');
+    // Table uses fixed pixel width (720px) for Lark paste compatibility.
+    expect(html).toContain('width: 720px;');
+    expect(html).toContain('table-layout: fixed;');
   });
 
-  it('adds inline border + padding + width style on th and td', () => {
+  it('adds inline border + padding + pixel width style on th and td', () => {
     const html = render(tableMd);
-    // Every th and td should have border, padding, and column width
+    // Every th and td should have border, padding, and pixel-based column width
     expect(html).toContain('border: 1px solid #d9d9d9; padding: 8px;');
-    expect(html).toMatch(/<th[^>]*width: \d+(\.\d+)?%/);
-    expect(html).toMatch(/<td[^>]*width: \d+(\.\d+)?%/);
-    expect(html).toMatch(/min-width: \d+(\.\d+)?px/);
+    expect(html).toMatch(/<th[^>]*width: \d+px; min-width: \d+px;/);
+    expect(html).toMatch(/<td[^>]*width: \d+px; min-width: \d+px;/);
+    // data-colwidth for ProseMirror-based editors (Lark)
+    expect(html).toMatch(/<th[^>]*data-colwidth="\d+"/);
   });
 
   it('assigns wider columns to cells with more content', () => {
     const md =
       '| ID | Description |\n| --- | --- |\n| 1 | This is a very long description text |\n';
     const html = render(md);
-    // Extract the first two th width percentages
-    const thMatches = [...html.matchAll(/<th[^>]*width: ([\d.]+)%/g)];
+    // Extract pixel widths from th data-colwidth attributes
+    const thMatches = [...html.matchAll(/<th[^>]*data-colwidth="(\d+)"/g)];
     expect(thMatches.length).toBe(2);
     const idWidth = parseFloat(thMatches[0][1]);
     const descWidth = parseFloat(thMatches[1][1]);
@@ -212,7 +215,7 @@ describe('LarkRenderer - tables', () => {
   it('handles CJK content in column width calculation', () => {
     const md = '| 名前 | Age |\n| --- | --- |\n| 田中太郎 | 30 |\n';
     const html = render(md);
-    const thMatches = [...html.matchAll(/<th[^>]*width: ([\d.]+)%/g)];
+    const thMatches = [...html.matchAll(/<th[^>]*data-colwidth="(\d+)"/g)];
     expect(thMatches.length).toBe(2);
     const nameWidth = parseFloat(thMatches[0][1]);
     const ageWidth = parseFloat(thMatches[1][1]);
