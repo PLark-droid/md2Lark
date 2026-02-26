@@ -18,6 +18,12 @@ import { sanitizeHtml } from '../core/sanitizer.js';
 import { copyHtmlToClipboard } from './clipboard.js';
 import { htmlToPlainText } from './utils.js';
 
+declare global {
+  interface Window {
+    __md2lark_content_loaded?: boolean;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Message handler
 // ---------------------------------------------------------------------------
@@ -45,10 +51,10 @@ async function handleConvertAndCopy(markdown: string): Promise<void> {
 // Idempotency guard: prevent duplicate listener registration on re-injection.
 // ---------------------------------------------------------------------------
 
-if ((window as unknown as Record<string, unknown>).__md2lark_content_loaded) {
+if (window.__md2lark_content_loaded) {
   // Already loaded; skip.
 } else {
-  (window as unknown as Record<string, unknown>).__md2lark_content_loaded = true;
+  window.__md2lark_content_loaded = true;
 
   /**
    * Listen for messages from the background service worker.

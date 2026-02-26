@@ -104,6 +104,11 @@ function showStatus(
  *
  * Wraps the HTML in a minimal document with body styles for readability.
  * The iframe's `sandbox` attribute restricts script execution.
+ *
+ * Security layers:
+ * 1. Input is sanitized via sanitizeHtml() before reaching this function
+ * 2. iframe has sandbox="" (all capabilities disabled, including scripts)
+ * 3. srcdoc CSP meta tag: default-src 'none' blocks all resource loading
  */
 function updatePreview(html: string): void {
   if (previewFrame) {
@@ -291,7 +296,8 @@ async function handleFetchFromAi(): Promise<void> {
       },
     });
 
-    const extractedText = (results?.[0]?.result as string) ?? '';
+    const raw = results?.[0]?.result;
+    const extractedText = typeof raw === 'string' ? raw : '';
 
     if (!extractedText) {
       showStatus('No AI message found on this page.', 'error', 3000);
@@ -346,10 +352,8 @@ function renderHistoryList(entries: HistoryEntry[]): void {
 
   currentHistoryEntries = entries;
 
-  // Clear existing children.
-  while (historyList.firstChild) {
-    historyList.removeChild(historyList.firstChild);
-  }
+  // Clear existing children in a single DOM operation.
+  historyList.replaceChildren();
 
   if (entries.length === 0) {
     historyEmpty.style.display = 'block';
@@ -426,6 +430,18 @@ if (historyList) {
         renderPreview();
         showStatus('Loaded from history', 'success');
       }
+    }
+  });
+
+  // Keyboard activation for history items (WAI-ARIA button pattern).
+  historyList.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+
+    const target = e.target as HTMLElement;
+    const item = target.closest('.history-item') as HTMLElement | null;
+    if (item) {
+      e.preventDefault();
+      item.click();
     }
   });
 }

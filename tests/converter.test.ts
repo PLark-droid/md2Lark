@@ -370,6 +370,15 @@ describe('convertToHtml', () => {
       // The plain text should have decoded entities
       expect(result.plainText).toContain('&');
     });
+
+    it('should decode hex HTML entities in plain text', () => {
+      // &#x2665; is the hex entity for a heart symbol.
+      // Inside backtick code, marked will preserve the raw entity in the HTML,
+      // so stripHtmlTags must decode &#x...; to produce the actual character.
+      const md = '`&#x2665;`';
+      const result = convertToHtml({ markdown: md });
+      expect(result.plainText).toContain('\u2665');
+    });
   });
 
   // -- Strikethrough (GFM) --------------------------------------------------

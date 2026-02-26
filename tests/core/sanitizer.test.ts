@@ -355,3 +355,34 @@ describe('sanitizeHtml - entity-encoded dangerous URIs in single quotes', () => 
     expect(result).not.toContain('javascript:');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Control-character scheme obfuscation (#P3 security)
+// ---------------------------------------------------------------------------
+
+describe('sanitizeHtml - control character scheme obfuscation', () => {
+  it('neutralizes javascript: with embedded tab in scheme name', () => {
+    const input = '<a href="java\tscript:alert(1)">link</a>';
+    const result = sanitizeHtml(input);
+    expect(result).not.toContain('javascript:');
+    expect(result).not.toContain('alert(1)');
+  });
+
+  it('neutralizes javascript: with embedded newline in scheme name', () => {
+    const input = '<a href="java\nscript:alert(1)">link</a>';
+    const result = sanitizeHtml(input);
+    expect(result).not.toContain('javascript:');
+    expect(result).not.toContain('alert(1)');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Early-exit optimization for plain text (#P3 performance)
+// ---------------------------------------------------------------------------
+
+describe('sanitizeHtml - early exit for plain text', () => {
+  it('returns plain text without angle brackets unchanged', () => {
+    const input = 'Hello world! This is plain text with no HTML.';
+    expect(sanitizeHtml(input)).toBe(input);
+  });
+});

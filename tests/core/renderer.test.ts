@@ -2,6 +2,7 @@ import {
   LarkRenderer,
   markdownToLarkHtml,
 } from '../../src/core/renderer';
+import { Lexer } from 'marked';
 
 /**
  * Helper: render markdown via the Lark renderer.
@@ -395,5 +396,14 @@ describe('LarkRenderer - class export', () => {
   it('is exported and can be instantiated', () => {
     const renderer = new LarkRenderer();
     expect(renderer).toBeInstanceOf(LarkRenderer);
+  });
+
+  it('renders tokens via renderTokens()', () => {
+    const renderer = new LarkRenderer();
+    const tokens = Lexer.lex('# Hello **world**');
+    const html = renderer.renderTokens(tokens);
+    expect(html).toContain('<h1>');
+    expect(html).toContain('<strong>world</strong>');
+    expect(html).toContain('</h1>');
   });
 });

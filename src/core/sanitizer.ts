@@ -85,6 +85,9 @@ const DANGEROUS_URI_RE =
  * ```
  */
 export function sanitizeHtml(html: string): string {
+  // Early exit: plain text with no HTML tags needs no sanitization.
+  if (!html.includes('<')) return html;
+
   let result = html;
 
   // 1. Strip dangerous tags using pre-compiled patterns.
@@ -108,7 +111,8 @@ export function sanitizeHtml(html: string): string {
     (_match, attr: string, value: string) => {
       const decoded = value
         .replace(HEX_ENTITY_RE, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)))
-        .replace(DEC_ENTITY_RE, (_m, dec: string) => String.fromCharCode(parseInt(dec, 10)));
+        .replace(DEC_ENTITY_RE, (_m, dec: string) => String.fromCharCode(parseInt(dec, 10)))
+        .replace(/[\x00-\x1f]+/g, '');
       const safe = decoded.replace(/"/g, '&quot;');
       return `${attr}="${safe}"`;
     },
@@ -119,7 +123,8 @@ export function sanitizeHtml(html: string): string {
     (_match, attr: string, value: string) => {
       const decoded = value
         .replace(HEX_ENTITY_RE, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)))
-        .replace(DEC_ENTITY_RE, (_m, dec: string) => String.fromCharCode(parseInt(dec, 10)));
+        .replace(DEC_ENTITY_RE, (_m, dec: string) => String.fromCharCode(parseInt(dec, 10)))
+        .replace(/[\x00-\x1f]+/g, '');
       const safe = decoded.replace(/'/g, '&#39;');
       return `${attr}='${safe}'`;
     },
