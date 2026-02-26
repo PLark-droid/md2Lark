@@ -273,6 +273,7 @@ async function build(): Promise<void> {
   console.log('\n  Copying static assets...');
   copyFile(path.join(SRC_EXT, 'popup.html'), path.join(DIST_EXT, 'popup.html'));
   copyFile(path.join(SRC_EXT, 'popup.css'), path.join(DIST_EXT, 'popup.css'));
+  copyFile(path.join(SRC_EXT, 'common.css'), path.join(DIST_EXT, 'common.css'));
   copyFile(path.join(SRC_EXT, 'options.html'), path.join(DIST_EXT, 'options.html'));
   copyFile(path.join(SRC_EXT, 'options.css'), path.join(DIST_EXT, 'options.css'));
   copyFile(path.join(SRC_EXT, 'manifest.json'), path.join(DIST_EXT, 'manifest.json'));
