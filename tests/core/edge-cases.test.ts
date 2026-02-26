@@ -25,8 +25,7 @@ describe('Edge cases - full pipeline', () => {
     });
 
     it('should preserve code block content exactly', () => {
-      const input =
-        '```javascript\nconst x = `template ${literal}`;\n```';
+      const input = '```javascript\nconst x = `template ${literal}`;\n```';
       const result = fullPipeline(input);
       expect(result).toContain('const x = `template ${literal}`;');
     });
@@ -78,8 +77,7 @@ describe('Edge cases - full pipeline', () => {
 
   describe('tables', () => {
     it('should wrap tables with overflow container', () => {
-      const input =
-        '| Col1 | Col2 | Col3 |\n|------|------|------|\n| a | b | c |';
+      const input = '| Col1 | Col2 | Col3 |\n|------|------|------|\n| a | b | c |';
       const result = fullPipeline(input);
       expect(result).toContain('overflow-x: auto');
       expect(result).toContain('<table');
@@ -88,16 +86,14 @@ describe('Edge cases - full pipeline', () => {
 
   describe('HTML mixed markdown', () => {
     it('should sanitize inline HTML in markdown', () => {
-      const input =
-        'Text with <script>alert("xss")</script> injection.';
+      const input = 'Text with <script>alert("xss")</script> injection.';
       const result = fullPipeline(input);
       expect(result).not.toContain('<script');
       expect(result).not.toContain('alert');
     });
 
     it('should handle safe HTML tags', () => {
-      const input =
-        'Text with <strong>bold</strong> and <em>italic</em>.';
+      const input = 'Text with <strong>bold</strong> and <em>italic</em>.';
       const result = fullPipeline(input);
       expect(result).toContain('<strong>');
       expect(result).toContain('<em>');
@@ -133,8 +129,7 @@ describe('Edge cases - full pipeline', () => {
 
   describe('indented code blocks', () => {
     it('should handle 4-space indented code blocks', () => {
-      const input =
-        'Normal text\n\n    indented code\n    more code\n\nNormal again';
+      const input = 'Normal text\n\n    indented code\n    more code\n\nNormal again';
       const result = fullPipeline(input);
       expect(result).toContain('<code');
       expect(result).toContain('indented code');
@@ -157,12 +152,16 @@ describe('Edge cases - full pipeline', () => {
 
   describe('deeply nested structures', () => {
     it('should handle 10-level nested lists', () => {
-      const md = Array.from({ length: 10 }, (_, i) => '  '.repeat(i) + '- item ' + (i + 1)).join('\n');
+      const md = Array.from({ length: 10 }, (_, i) => '  '.repeat(i) + '- item ' + (i + 1)).join(
+        '\n',
+      );
       expect(() => fullPipeline(md)).not.toThrow();
     });
 
     it('should handle 5-level nested blockquotes', () => {
-      const md = Array.from({ length: 5 }, (_, i) => '>'.repeat(i + 1) + ' level ' + (i + 1)).join('\n');
+      const md = Array.from({ length: 5 }, (_, i) => '>'.repeat(i + 1) + ' level ' + (i + 1)).join(
+        '\n',
+      );
       expect(() => fullPipeline(md)).not.toThrow();
     });
   });

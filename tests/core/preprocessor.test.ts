@@ -85,8 +85,7 @@ describe('preprocessMarkdown', () => {
     });
 
     it('should handle multiple footnotes', () => {
-      const input =
-        'Text[^1] and more[^2].\n\n[^1]: First note.\n[^2]: Second note.';
+      const input = 'Text[^1] and more[^2].\n\n[^1]: First note.\n[^2]: Second note.';
       const result = preprocessMarkdown(input);
       expect(result).toContain('(*First note.*)');
       expect(result).toContain('(*Second note.*)');

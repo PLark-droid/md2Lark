@@ -31,8 +31,7 @@ describe('sanitizeHtml - script removal', () => {
   });
 
   it('removes multiple <script> tags', () => {
-    const input =
-      '<script>a()</script>safe<script>b()</script>';
+    const input = '<script>a()</script>safe<script>b()</script>';
     expect(sanitizeHtml(input)).toBe('safe');
   });
 });
@@ -117,8 +116,7 @@ describe('sanitizeHtml - javascript: URL removal', () => {
 
 describe('sanitizeHtml - normal HTML passthrough', () => {
   it('passes through regular HTML unchanged', () => {
-    const input =
-      '<p>Hello <strong>world</strong></p><ul><li>item</li></ul>';
+    const input = '<p>Hello <strong>world</strong></p><ul><li>item</li></ul>';
     expect(sanitizeHtml(input)).toBe(input);
   });
 
@@ -286,13 +284,20 @@ describe('sanitizeHtml - nested and obfuscated XSS', () => {
 
 describe('HTML entity encoded attacks', () => {
   it('neutralizes entity-encoded javascript: in href', () => {
-    const input = '<a href="&#106;&#97;&#118;&#97;&#115;&#99;&#114;&#105;&#112;&#116;&#58;alert(1)">link</a>';
+    const input =
+      '<a href="&#106;&#97;&#118;&#97;&#115;&#99;&#114;&#105;&#112;&#116;&#58;alert(1)">link</a>';
     const result = sanitizeHtml(input);
     expect(result).not.toContain('javascript:');
   });
 
   it('neutralizes hex entity-encoded javascript: in href', () => {
     const input = '<a href="&#x6A;avascript:alert(1)">link</a>';
+    const result = sanitizeHtml(input);
+    expect(result).not.toContain('javascript:');
+  });
+
+  it('decodes hex entities in single-quoted href', () => {
+    const input = "<a href='&#x6A;avascript:alert(1)'>link</a>";
     const result = sanitizeHtml(input);
     expect(result).not.toContain('javascript:');
   });
@@ -350,7 +355,8 @@ describe('sanitizeHtml - SVG tag removal', () => {
 
 describe('sanitizeHtml - entity-encoded dangerous URIs in single quotes', () => {
   it('neutralizes entity-encoded javascript: in single-quoted href', () => {
-    const input = "<a href='&#106;&#97;&#118;&#97;&#115;&#99;&#114;&#105;&#112;&#116;&#58;alert(1)'>link</a>";
+    const input =
+      "<a href='&#106;&#97;&#118;&#97;&#115;&#99;&#114;&#105;&#112;&#116;&#58;alert(1)'>link</a>";
     const result = sanitizeHtml(input);
     expect(result).not.toContain('javascript:');
   });

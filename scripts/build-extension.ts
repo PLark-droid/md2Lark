@@ -46,27 +46,30 @@ function copyFile(src: string, dest: string): void {
 function createPlaceholderPng(): Buffer {
   // Minimal valid PNG: 1x1 pixel, RGBA, transparent
   // PNG signature + IHDR + IDAT + IEND
-  const signature = Buffer.from([
-    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-  ]);
+  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
   // IHDR chunk: 1x1, 8-bit RGBA
   const ihdrData = Buffer.from([
-    0x00, 0x00, 0x00, 0x01, // width = 1
-    0x00, 0x00, 0x00, 0x01, // height = 1
-    0x08,                   // bit depth = 8
-    0x06,                   // color type = RGBA
-    0x00,                   // compression method
-    0x00,                   // filter method
-    0x00,                   // interlace method
+    0x00,
+    0x00,
+    0x00,
+    0x01, // width = 1
+    0x00,
+    0x00,
+    0x00,
+    0x01, // height = 1
+    0x08, // bit depth = 8
+    0x06, // color type = RGBA
+    0x00, // compression method
+    0x00, // filter method
+    0x00, // interlace method
   ]);
   const ihdr = createPngChunk('IHDR', ihdrData);
 
   // IDAT chunk: zlib-compressed scanline (filter byte 0 + 4 zero bytes for RGBA)
   // Pre-computed zlib stream for [0x00, 0x00, 0x00, 0x00, 0x00]
   const idatData = Buffer.from([
-    0x78, 0x01, 0x62, 0x60, 0x60, 0x60, 0x60, 0x00,
-    0x00, 0x00, 0x05, 0x00, 0x01,
+    0x78, 0x01, 0x62, 0x60, 0x60, 0x60, 0x60, 0x00, 0x00, 0x00, 0x05, 0x00, 0x01,
   ]);
   const idat = createPngChunk('IDAT', idatData);
 
@@ -174,39 +177,39 @@ async function createZipFromDirectory(srcDir: string, destZip: string): Promise<
 
     // Local file header (30 bytes + name + compressed data)
     const localHeader = Buffer.alloc(30);
-    writeUInt32LE(localHeader, 0x04034b50, 0);  // Local file header signature
-    writeUInt16LE(localHeader, 20, 4);            // Version needed to extract
-    writeUInt16LE(localHeader, 0, 6);             // General purpose bit flag
-    writeUInt16LE(localHeader, method, 8);        // Compression method
-    writeUInt16LE(localHeader, 0, 10);            // Last mod file time
-    writeUInt16LE(localHeader, 0, 12);            // Last mod file date
-    writeUInt32LE(localHeader, crc, 14);          // CRC-32
-    writeUInt32LE(localHeader, compressedSize, 18);  // Compressed size
+    writeUInt32LE(localHeader, 0x04034b50, 0); // Local file header signature
+    writeUInt16LE(localHeader, 20, 4); // Version needed to extract
+    writeUInt16LE(localHeader, 0, 6); // General purpose bit flag
+    writeUInt16LE(localHeader, method, 8); // Compression method
+    writeUInt16LE(localHeader, 0, 10); // Last mod file time
+    writeUInt16LE(localHeader, 0, 12); // Last mod file date
+    writeUInt32LE(localHeader, crc, 14); // CRC-32
+    writeUInt32LE(localHeader, compressedSize, 18); // Compressed size
     writeUInt32LE(localHeader, uncompressedSize, 22); // Uncompressed size
     writeUInt16LE(localHeader, nameBuffer.length, 26); // File name length
-    writeUInt16LE(localHeader, 0, 28);            // Extra field length
+    writeUInt16LE(localHeader, 0, 28); // Extra field length
 
     parts.push(localHeader, nameBuffer, compressed);
 
     // Central directory header (46 bytes + name)
     const cdHeader = Buffer.alloc(46);
-    writeUInt32LE(cdHeader, 0x02014b50, 0);  // Central directory signature
-    writeUInt16LE(cdHeader, 20, 4);           // Version made by
-    writeUInt16LE(cdHeader, 20, 6);           // Version needed to extract
-    writeUInt16LE(cdHeader, 0, 8);            // General purpose bit flag
-    writeUInt16LE(cdHeader, method, 10);      // Compression method
-    writeUInt16LE(cdHeader, 0, 12);           // Last mod file time
-    writeUInt16LE(cdHeader, 0, 14);           // Last mod file date
-    writeUInt32LE(cdHeader, crc, 16);         // CRC-32
-    writeUInt32LE(cdHeader, compressedSize, 20);  // Compressed size
+    writeUInt32LE(cdHeader, 0x02014b50, 0); // Central directory signature
+    writeUInt16LE(cdHeader, 20, 4); // Version made by
+    writeUInt16LE(cdHeader, 20, 6); // Version needed to extract
+    writeUInt16LE(cdHeader, 0, 8); // General purpose bit flag
+    writeUInt16LE(cdHeader, method, 10); // Compression method
+    writeUInt16LE(cdHeader, 0, 12); // Last mod file time
+    writeUInt16LE(cdHeader, 0, 14); // Last mod file date
+    writeUInt32LE(cdHeader, crc, 16); // CRC-32
+    writeUInt32LE(cdHeader, compressedSize, 20); // Compressed size
     writeUInt32LE(cdHeader, uncompressedSize, 24); // Uncompressed size
     writeUInt16LE(cdHeader, nameBuffer.length, 28); // File name length
-    writeUInt16LE(cdHeader, 0, 30);           // Extra field length
-    writeUInt16LE(cdHeader, 0, 32);           // File comment length
-    writeUInt16LE(cdHeader, 0, 34);           // Disk number start
-    writeUInt16LE(cdHeader, 0, 36);           // Internal file attributes
-    writeUInt32LE(cdHeader, 0, 38);           // External file attributes
-    writeUInt32LE(cdHeader, offset, 42);      // Relative offset of local header
+    writeUInt16LE(cdHeader, 0, 30); // Extra field length
+    writeUInt16LE(cdHeader, 0, 32); // File comment length
+    writeUInt16LE(cdHeader, 0, 34); // Disk number start
+    writeUInt16LE(cdHeader, 0, 36); // Internal file attributes
+    writeUInt32LE(cdHeader, 0, 38); // External file attributes
+    writeUInt32LE(cdHeader, offset, 42); // Relative offset of local header
 
     centralDir.push(cdHeader, nameBuffer);
 
@@ -217,14 +220,14 @@ async function createZipFromDirectory(srcDir: string, destZip: string): Promise<
   const cdOffset = offset;
   const cdSize = centralDir.reduce((sum, b) => sum + b.length, 0);
   const eocd = Buffer.alloc(22);
-  writeUInt32LE(eocd, 0x06054b50, 0);       // End of central directory signature
-  writeUInt16LE(eocd, 0, 4);                 // Number of this disk
-  writeUInt16LE(eocd, 0, 6);                 // Disk where central directory starts
-  writeUInt16LE(eocd, files.length, 8);      // Number of central directory records on this disk
-  writeUInt16LE(eocd, files.length, 10);     // Total number of central directory records
-  writeUInt32LE(eocd, cdSize, 12);           // Size of central directory
-  writeUInt32LE(eocd, cdOffset, 16);         // Offset of start of central directory
-  writeUInt16LE(eocd, 0, 20);               // Comment length
+  writeUInt32LE(eocd, 0x06054b50, 0); // End of central directory signature
+  writeUInt16LE(eocd, 0, 4); // Number of this disk
+  writeUInt16LE(eocd, 0, 6); // Disk where central directory starts
+  writeUInt16LE(eocd, files.length, 8); // Number of central directory records on this disk
+  writeUInt16LE(eocd, files.length, 10); // Total number of central directory records
+  writeUInt32LE(eocd, cdSize, 12); // Size of central directory
+  writeUInt32LE(eocd, cdOffset, 16); // Offset of start of central directory
+  writeUInt16LE(eocd, 0, 20); // Comment length
 
   const zipBuffer = Buffer.concat([...parts, ...centralDir, eocd]);
   fs.writeFileSync(destZip, zipBuffer);
@@ -268,26 +271,11 @@ async function build(): Promise<void> {
 
   // 3. Copy static assets.
   console.log('\n  Copying static assets...');
-  copyFile(
-    path.join(SRC_EXT, 'popup.html'),
-    path.join(DIST_EXT, 'popup.html'),
-  );
-  copyFile(
-    path.join(SRC_EXT, 'popup.css'),
-    path.join(DIST_EXT, 'popup.css'),
-  );
-  copyFile(
-    path.join(SRC_EXT, 'options.html'),
-    path.join(DIST_EXT, 'options.html'),
-  );
-  copyFile(
-    path.join(SRC_EXT, 'options.css'),
-    path.join(DIST_EXT, 'options.css'),
-  );
-  copyFile(
-    path.join(SRC_EXT, 'manifest.json'),
-    path.join(DIST_EXT, 'manifest.json'),
-  );
+  copyFile(path.join(SRC_EXT, 'popup.html'), path.join(DIST_EXT, 'popup.html'));
+  copyFile(path.join(SRC_EXT, 'popup.css'), path.join(DIST_EXT, 'popup.css'));
+  copyFile(path.join(SRC_EXT, 'options.html'), path.join(DIST_EXT, 'options.html'));
+  copyFile(path.join(SRC_EXT, 'options.css'), path.join(DIST_EXT, 'options.css'));
+  copyFile(path.join(SRC_EXT, 'manifest.json'), path.join(DIST_EXT, 'manifest.json'));
 
   // 4. Copy or generate placeholder icons.
   console.log('\n  Generating icons...');
@@ -320,9 +308,7 @@ async function build(): Promise<void> {
   }
 
   console.log('\nBuild complete! Extension files are in dist/extension/');
-  console.log(
-    'To load in Chrome: chrome://extensions -> Load unpacked -> select dist/extension/',
-  );
+  console.log('To load in Chrome: chrome://extensions -> Load unpacked -> select dist/extension/');
 }
 
 build().catch((err) => {

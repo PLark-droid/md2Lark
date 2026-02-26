@@ -19,10 +19,7 @@
  * await copyHtmlToClipboard('<h1>Hello</h1>', 'Hello');
  * ```
  */
-export async function copyHtmlToClipboard(
-  html: string,
-  plainText: string,
-): Promise<void> {
+export async function copyHtmlToClipboard(html: string, plainText: string): Promise<void> {
   if (
     typeof navigator === 'undefined' ||
     !navigator.clipboard ||

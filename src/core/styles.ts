@@ -28,8 +28,7 @@ const minimal: StyleTemplate = {
   styles: {
     table: 'border-collapse: collapse;',
     'th,td': 'border: 1px solid #d9d9d9; padding: 8px;',
-    blockquote:
-      'border-left: 4px solid #d9d9d9; padding-left: 16px; color: #666;',
+    blockquote: 'border-left: 4px solid #d9d9d9; padding-left: 16px; color: #666;',
     pre: 'background: #f5f5f5; padding: 12px; border-radius: 4px; overflow-x: auto;',
     code: 'font-family: monospace;',
     'inline-code':
@@ -100,18 +99,13 @@ export const STYLE_TEMPLATES: Record<StyleTemplateName, StyleTemplate> = {
  * Get a style template by name. Falls back to 'minimal' for unknown names.
  */
 export function getStyleTemplate(name: string): StyleTemplate {
-  return (
-    STYLE_TEMPLATES[name as StyleTemplateName] ?? STYLE_TEMPLATES.minimal
-  );
+  return STYLE_TEMPLATES[name as StyleTemplateName] ?? STYLE_TEMPLATES.minimal;
 }
 
 /**
  * Get the inline style string for a given element type from a template.
  * Returns empty string if no style is defined for that element.
  */
-export function getElementStyle(
-  template: StyleTemplate,
-  element: string,
-): string {
+export function getElementStyle(template: StyleTemplate, element: string): string {
   return template.styles[element] ?? '';
 }

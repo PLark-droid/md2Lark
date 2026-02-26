@@ -28,7 +28,7 @@ function generateId(): string {
  * Strips heading markers and truncates to 60 chars.
  */
 export function extractTitle(markdown: string): string {
-  const firstLine = markdown.split('\n').find(line => line.trim().length > 0) ?? '';
+  const firstLine = markdown.split('\n').find((line) => line.trim().length > 0) ?? '';
   const cleaned = firstLine.replace(/^#+\s*/, '').trim();
   return cleaned.length > 60 ? cleaned.substring(0, 57) + '...' : cleaned;
 }
@@ -94,7 +94,7 @@ export async function addHistoryEntry(markdown: string, html: string): Promise<H
  */
 export async function deleteHistoryEntry(id: string): Promise<void> {
   const entries = await loadHistory();
-  const filtered = entries.filter(e => e.id !== id);
+  const filtered = entries.filter((e) => e.id !== id);
   await saveHistory(filtered);
 }
 

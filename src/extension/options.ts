@@ -13,7 +13,9 @@ import { debounce } from './utils.js';
 const gfmEnabledEl = document.getElementById('gfm-enabled') as HTMLInputElement | null;
 const defaultCodeLangEl = document.getElementById('default-code-lang') as HTMLInputElement | null;
 const styleTemplateEl = document.getElementById('style-template') as HTMLSelectElement | null;
-const tableBorderStyleEl = document.getElementById('table-border-style') as HTMLSelectElement | null;
+const tableBorderStyleEl = document.getElementById(
+  'table-border-style',
+) as HTMLSelectElement | null;
 const customCssEl = document.getElementById('custom-css') as HTMLTextAreaElement | null;
 const saveStatusEl = document.getElementById('save-status') as HTMLSpanElement | null;
 
@@ -84,15 +86,25 @@ async function init(): Promise<void> {
   populateForm(settings);
 
   // Auto-save on any input change.
-  const inputs = [gfmEnabledEl, defaultCodeLangEl, styleTemplateEl, tableBorderStyleEl, customCssEl];
+  const inputs = [
+    gfmEnabledEl,
+    defaultCodeLangEl,
+    styleTemplateEl,
+    tableBorderStyleEl,
+    customCssEl,
+  ];
   for (const el of inputs) {
     if (el) {
-      el.addEventListener('change', () => { void handleAutoSave(); });
+      el.addEventListener('change', () => {
+        void handleAutoSave();
+      });
     }
   }
 
   // Also auto-save on text input (for textarea and text fields with debounce).
-  const debouncedAutoSave = debounce(() => { void handleAutoSave(); }, 500);
+  const debouncedAutoSave = debounce(() => {
+    void handleAutoSave();
+  }, 500);
   const textInputs = [defaultCodeLangEl, customCssEl];
   for (const el of textInputs) {
     if (el) {

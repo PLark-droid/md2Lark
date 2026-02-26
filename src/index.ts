@@ -23,8 +23,4 @@ export {
   sanitizeHtml,
 } from './core/index';
 
-export type {
-  ParserOptions,
-  ParseResult,
-  ParseMetadata,
-} from './core/index';
+export type { ParserOptions, ParseResult, ParseMetadata } from './core/index';

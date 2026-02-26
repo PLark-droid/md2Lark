@@ -21,28 +21,28 @@
 // Types
 // ---------------------------------------------------------------------------
 
-type EventKind = "issue" | "pr" | "push" | "comment";
+type EventKind = 'issue' | 'pr' | 'push' | 'comment';
 
 interface IssueArgs {
-  kind: "issue";
+  kind: 'issue';
   eventType: string;
   issueNumber: number;
 }
 
 interface PrArgs {
-  kind: "pr";
+  kind: 'pr';
   eventType: string;
   prNumber: number;
 }
 
 interface PushArgs {
-  kind: "push";
+  kind: 'push';
   branchName: string;
   commitSha: string;
 }
 
 interface CommentArgs {
-  kind: "comment";
+  kind: 'comment';
   issueNumber: number;
   commentAuthor: string;
 }
@@ -63,9 +63,9 @@ interface GitHubPullRequest {
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_REPOSITORY = process.env.GITHUB_REPOSITORY;
-const COMMENT_BODY = process.env.COMMENT_BODY ?? "";
+const COMMENT_BODY = process.env.COMMENT_BODY ?? '';
 
-const REST_BASE = "https://api.github.com";
+const REST_BASE = 'https://api.github.com';
 
 // ---------------------------------------------------------------------------
 // State label mappings
@@ -73,14 +73,14 @@ const REST_BASE = "https://api.github.com";
 
 /** Maps issue event actions to the state label that should be applied. */
 const ISSUE_STATE_MAP: Record<string, string> = {
-  opened: "state:pending",
-  closed: "state:done",
-  reopened: "state:implementing",
+  opened: 'state:pending',
+  closed: 'state:done',
+  reopened: 'state:implementing',
 };
 
 /** Maps PR event actions to the state label that should be applied. */
 const PR_STATE_MAP: Record<string, string> = {
-  opened: "state:reviewing",
+  opened: 'state:reviewing',
 };
 
 // PR closed events require checking whether the PR was merged,
@@ -95,48 +95,46 @@ function parseArgs(argv: string[]): ParsedArgs {
   const args = argv.slice(2);
 
   if (args.length < 1) {
-    console.error(
-      "Usage: webhook-router.ts <issue|pr|push|comment> <arg1> <arg2>",
-    );
+    console.error('Usage: webhook-router.ts <issue|pr|push|comment> <arg1> <arg2>');
     process.exit(1);
   }
 
   const kind = args[0] as EventKind;
 
   switch (kind) {
-    case "issue": {
-      const eventType = args[1] ?? "unknown";
-      const issueNumber = parseInt(args[2] ?? "0", 10);
+    case 'issue': {
+      const eventType = args[1] ?? 'unknown';
+      const issueNumber = parseInt(args[2] ?? '0', 10);
       if (isNaN(issueNumber) || issueNumber <= 0) {
-        console.error("Error: Invalid issue number:", args[2]);
+        console.error('Error: Invalid issue number:', args[2]);
         process.exit(1);
       }
       return { kind, eventType, issueNumber };
     }
 
-    case "pr": {
-      const eventType = args[1] ?? "unknown";
-      const prNumber = parseInt(args[2] ?? "0", 10);
+    case 'pr': {
+      const eventType = args[1] ?? 'unknown';
+      const prNumber = parseInt(args[2] ?? '0', 10);
       if (isNaN(prNumber) || prNumber <= 0) {
-        console.error("Error: Invalid PR number:", args[2]);
+        console.error('Error: Invalid PR number:', args[2]);
         process.exit(1);
       }
       return { kind, eventType, prNumber };
     }
 
-    case "push": {
-      const branchName = args[1] ?? "unknown";
-      const commitSha = args[2] ?? "unknown";
+    case 'push': {
+      const branchName = args[1] ?? 'unknown';
+      const commitSha = args[2] ?? 'unknown';
       return { kind, branchName, commitSha };
     }
 
-    case "comment": {
-      const issueNumber = parseInt(args[1] ?? "0", 10);
+    case 'comment': {
+      const issueNumber = parseInt(args[1] ?? '0', 10);
       if (isNaN(issueNumber) || issueNumber <= 0) {
-        console.error("Error: Invalid issue number:", args[1]);
+        console.error('Error: Invalid issue number:', args[1]);
         process.exit(1);
       }
-      const commentAuthor = args[2] ?? "unknown";
+      const commentAuthor = args[2] ?? 'unknown';
       return { kind, issueNumber, commentAuthor };
     }
 
@@ -152,19 +150,19 @@ function parseArgs(argv: string[]): ParsedArgs {
 
 function getRepoPath(): string {
   if (!GITHUB_REPOSITORY) {
-    throw new Error("GITHUB_REPOSITORY environment variable is required");
+    throw new Error('GITHUB_REPOSITORY environment variable is required');
   }
   return GITHUB_REPOSITORY;
 }
 
 function getHeaders(): Record<string, string> {
   if (!GITHUB_TOKEN) {
-    throw new Error("GITHUB_TOKEN environment variable is required");
+    throw new Error('GITHUB_TOKEN environment variable is required');
   }
   return {
     Authorization: `Bearer ${GITHUB_TOKEN}`,
-    Accept: "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28",
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
   };
 }
 
@@ -193,10 +191,10 @@ async function addLabel(number: number, label: string): Promise<boolean> {
   const url = `${REST_BASE}/repos/${repo}/issues/${number}/labels`;
 
   const res = await fetch(url, {
-    method: "POST",
+    method: 'POST',
     headers: {
       ...getHeaders(),
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({ labels: [label] }),
   });
@@ -220,7 +218,7 @@ async function removeLabel(number: number, label: string): Promise<boolean> {
   const url = `${REST_BASE}/repos/${repo}/issues/${number}/labels/${encodedLabel}`;
 
   const res = await fetch(url, {
-    method: "DELETE",
+    method: 'DELETE',
     headers: getHeaders(),
   });
 
@@ -244,7 +242,7 @@ async function removeLabel(number: number, label: string): Promise<boolean> {
  */
 async function setStateLabel(number: number, newLabel: string): Promise<void> {
   const currentLabels = await getLabels(number);
-  const existingStateLabels = currentLabels.filter((l) => l.startsWith("state:"));
+  const existingStateLabels = currentLabels.filter((l) => l.startsWith('state:'));
 
   // Remove existing state labels that differ from the target
   for (const existing of existingStateLabels) {
@@ -296,20 +294,20 @@ async function handleIssueEvent(args: IssueArgs): Promise<void> {
 async function handlePrEvent(args: PrArgs): Promise<void> {
   console.log(`[pr] Event: ${args.eventType}, PR: #${args.prNumber}`);
 
-  if (args.eventType === "closed") {
+  if (args.eventType === 'closed') {
     // Need to check if the PR was merged or just closed
     const pr = await getPullRequest(args.prNumber);
     if (!pr) {
-      console.warn("  Warning: Could not determine PR merge status; skipping label update");
+      console.warn('  Warning: Could not determine PR merge status; skipping label update');
       return;
     }
 
     if (pr.merged) {
-      console.log("  PR was merged - transitioning to state:deploying");
-      await setStateLabel(args.prNumber, "state:deploying");
+      console.log('  PR was merged - transitioning to state:deploying');
+      await setStateLabel(args.prNumber, 'state:deploying');
     } else {
-      console.log("  PR was closed without merge - transitioning to state:done");
-      await setStateLabel(args.prNumber, "state:done");
+      console.log('  PR was closed without merge - transitioning to state:done');
+      await setStateLabel(args.prNumber, 'state:done');
     }
     return;
   }
@@ -333,18 +331,18 @@ async function handleCommentEvent(args: CommentArgs): Promise<void> {
 
   const body = COMMENT_BODY.trim();
   if (!body) {
-    console.log("  Comment body is empty (COMMENT_BODY env var not set)");
+    console.log('  Comment body is empty (COMMENT_BODY env var not set)');
     return;
   }
 
   // Log a preview of the comment (truncated for readability)
-  const preview = body.length > 100 ? body.substring(0, 100) + "..." : body;
+  const preview = body.length > 100 ? body.substring(0, 100) + '...' : body;
   console.log(`  Comment preview: ${preview}`);
 
-  if (body.startsWith("/agent")) {
-    const command = body.split("\n")[0].trim();
+  if (body.startsWith('/agent')) {
+    const command = body.split('\n')[0].trim();
     console.log(`  Detected agent command: "${command}"`);
-    console.log("  Agent command execution is not yet implemented; logged for future processing.");
+    console.log('  Agent command execution is not yet implemented; logged for future processing.');
   }
 }
 
@@ -356,41 +354,41 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv);
 
   console.log(`\nWebhook Router - Processing ${args.kind} event`);
-  console.log(`  Repository: ${GITHUB_REPOSITORY ?? "(not set)"}`);
+  console.log(`  Repository: ${GITHUB_REPOSITORY ?? '(not set)'}`);
   console.log(`  Timestamp: ${new Date().toISOString()}`);
-  console.log("");
+  console.log('');
 
   // Validate required env vars for events that need API access
-  if (args.kind === "issue" || args.kind === "pr") {
+  if (args.kind === 'issue' || args.kind === 'pr') {
     if (!GITHUB_TOKEN) {
-      console.error("Error: GITHUB_TOKEN environment variable is required for label management.");
+      console.error('Error: GITHUB_TOKEN environment variable is required for label management.');
       process.exit(1);
     }
     if (!GITHUB_REPOSITORY) {
-      console.error("Error: GITHUB_REPOSITORY environment variable is required.");
+      console.error('Error: GITHUB_REPOSITORY environment variable is required.');
       process.exit(1);
     }
   }
 
   switch (args.kind) {
-    case "issue":
+    case 'issue':
       await handleIssueEvent(args);
       break;
-    case "pr":
+    case 'pr':
       await handlePrEvent(args);
       break;
-    case "push":
+    case 'push':
       await handlePushEvent(args);
       break;
-    case "comment":
+    case 'comment':
       await handleCommentEvent(args);
       break;
   }
 
-  console.log("\nWebhook routing complete.");
+  console.log('\nWebhook routing complete.');
 }
 
 main().catch((err) => {
-  console.error("Fatal error in webhook router:", err);
+  console.error('Fatal error in webhook router:', err);
   process.exit(1);
 });

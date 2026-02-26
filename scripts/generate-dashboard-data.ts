@@ -14,26 +14,19 @@
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_REPOSITORY = process.env.GITHUB_REPOSITORY;
-const GITHUB_PROJECT_NUMBER = parseInt(
-  process.env.GITHUB_PROJECT_NUMBER || "1",
-  10,
-);
+const GITHUB_PROJECT_NUMBER = parseInt(process.env.GITHUB_PROJECT_NUMBER || '1', 10);
 
 if (!GITHUB_TOKEN) {
-  console.error(
-    "Error: GITHUB_TOKEN environment variable is required.",
-  );
+  console.error('Error: GITHUB_TOKEN environment variable is required.');
   process.exit(1);
 }
 
 if (!GITHUB_REPOSITORY) {
-  console.error(
-    "Error: GITHUB_REPOSITORY environment variable is required (format: owner/repo).",
-  );
+  console.error('Error: GITHUB_REPOSITORY environment variable is required (format: owner/repo).');
   process.exit(1);
 }
 
-const [OWNER, REPO] = GITHUB_REPOSITORY.split("/");
+const [OWNER, REPO] = GITHUB_REPOSITORY.split('/');
 
 if (!OWNER || !REPO || !/^[\w.-]+$/.test(OWNER) || !/^[\w.-]+$/.test(REPO)) {
   console.error('Error: GITHUB_REPOSITORY must be in "owner/repo" format with valid characters.');
@@ -106,7 +99,7 @@ interface DashboardData {
 // GitHub API helpers
 // ---------------------------------------------------------------------------
 
-const REST_BASE = "https://api.github.com";
+const REST_BASE = 'https://api.github.com';
 
 async function restGet<T>(path: string): Promise<T | null> {
   const url = `${REST_BASE}${path}`;
@@ -115,8 +108,8 @@ async function restGet<T>(path: string): Promise<T | null> {
     const res = await fetch(url, {
       headers: {
         Authorization: `Bearer ${GITHUB_TOKEN}`,
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
       },
     });
     if (!res.ok) {
@@ -137,12 +130,10 @@ async function restGet<T>(path: string): Promise<T | null> {
 async function restGetAll<T>(path: string): Promise<T[]> {
   const results: T[] = [];
   let page = 1;
-  const separator = path.includes("?") ? "&" : "?";
+  const separator = path.includes('?') ? '&' : '?';
 
   while (true) {
-    const data = await restGet<T[]>(
-      `${path}${separator}per_page=100&page=${page}`,
-    );
+    const data = await restGet<T[]>(`${path}${separator}per_page=100&page=${page}`);
     if (!data || data.length === 0) break;
     results.push(...data);
     if (data.length < 100) break;
@@ -153,13 +144,13 @@ async function restGetAll<T>(path: string): Promise<T[]> {
 }
 
 async function graphql<T>(query: string, variables?: Record<string, unknown>): Promise<T | null> {
-  console.log("  POST https://api.github.com/graphql");
+  console.log('  POST https://api.github.com/graphql');
   try {
-    const res = await fetch("https://api.github.com/graphql", {
-      method: "POST",
+    const res = await fetch('https://api.github.com/graphql', {
+      method: 'POST',
       headers: {
         Authorization: `Bearer ${GITHUB_TOKEN}`,
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({ query, variables }),
     });
@@ -169,12 +160,12 @@ async function graphql<T>(query: string, variables?: Record<string, unknown>): P
     }
     const json = (await res.json()) as { data?: T; errors?: unknown[] };
     if (json.errors) {
-      console.warn("  Warning: GraphQL errors:", JSON.stringify(json.errors));
+      console.warn('  Warning: GraphQL errors:', JSON.stringify(json.errors));
       return null;
     }
     return json.data ?? null;
   } catch (err) {
-    console.warn("  Warning: GraphQL request failed:", err);
+    console.warn('  Warning: GraphQL request failed:', err);
     return null;
   }
 }
@@ -183,20 +174,14 @@ async function graphql<T>(query: string, variables?: Record<string, unknown>): P
 // Label helpers
 // ---------------------------------------------------------------------------
 
-function extractLabelsByPrefix(
-  labels: { name: string }[],
-  prefix: string,
-): string[] {
+function extractLabelsByPrefix(labels: { name: string }[], prefix: string): string[] {
   return labels
     .map((l) => l.name)
     .filter((n) => n.startsWith(prefix))
     .map((n) => n.slice(prefix.length));
 }
 
-function countByLabelPrefix(
-  issues: GitHubIssue[],
-  prefix: string,
-): Record<string, number> {
+function countByLabelPrefix(issues: GitHubIssue[], prefix: string): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const issue of issues) {
     const values = extractLabelsByPrefix(issue.labels, prefix);
@@ -211,52 +196,42 @@ function countByLabelPrefix(
 // Data fetchers
 // ---------------------------------------------------------------------------
 
-async function fetchIssues(): Promise<DashboardData["issues"]> {
-  console.log("\nFetching issues...");
+async function fetchIssues(): Promise<DashboardData['issues']> {
+  console.log('\nFetching issues...');
 
-  const allIssues = await restGetAll<GitHubIssue>(
-    `/repos/${OWNER}/${REPO}/issues?state=all`,
-  );
+  const allIssues = await restGetAll<GitHubIssue>(`/repos/${OWNER}/${REPO}/issues?state=all`);
 
   // GitHub REST API returns PRs in the issues endpoint; filter them out
-  const issues = allIssues.filter(
-    (i) => !(i as unknown as Record<string, unknown>).pull_request,
-  );
+  const issues = allIssues.filter((i) => !(i as unknown as Record<string, unknown>).pull_request);
 
-  const open = issues.filter((i) => i.state === "open").length;
-  const closed = issues.filter((i) => i.state === "closed").length;
+  const open = issues.filter((i) => i.state === 'open').length;
+  const closed = issues.filter((i) => i.state === 'closed').length;
 
-  const byPriority = countByLabelPrefix(issues, "priority:");
-  const byState = countByLabelPrefix(issues, "state:");
-  const byAgent = countByLabelPrefix(issues, "agent:");
+  const byPriority = countByLabelPrefix(issues, 'priority:');
+  const byState = countByLabelPrefix(issues, 'state:');
+  const byAgent = countByLabelPrefix(issues, 'agent:');
 
   console.log(`  Found ${issues.length} issues (${open} open, ${closed} closed)`);
 
   return { open, closed, byPriority, byState, byAgent };
 }
 
-async function fetchPullRequests(): Promise<DashboardData["pullRequests"]> {
-  console.log("\nFetching pull requests...");
+async function fetchPullRequests(): Promise<DashboardData['pullRequests']> {
+  console.log('\nFetching pull requests...');
 
-  const prs = await restGetAll<GitHubPullRequest>(
-    `/repos/${OWNER}/${REPO}/pulls?state=all`,
-  );
+  const prs = await restGetAll<GitHubPullRequest>(`/repos/${OWNER}/${REPO}/pulls?state=all`);
 
-  const open = prs.filter((pr) => pr.state === "open").length;
+  const open = prs.filter((pr) => pr.state === 'open').length;
   const merged = prs.filter((pr) => pr.merged_at !== null).length;
-  const closed = prs.filter(
-    (pr) => pr.state === "closed" && pr.merged_at === null,
-  ).length;
+  const closed = prs.filter((pr) => pr.state === 'closed' && pr.merged_at === null).length;
 
-  console.log(
-    `  Found ${prs.length} PRs (${open} open, ${merged} merged, ${closed} closed)`,
-  );
+  console.log(`  Found ${prs.length} PRs (${open} open, ${merged} merged, ${closed} closed)`);
 
   return { open, merged, closed };
 }
 
-async function fetchWorkflows(): Promise<DashboardData["workflows"]> {
-  console.log("\nFetching workflow runs...");
+async function fetchWorkflows(): Promise<DashboardData['workflows']> {
+  console.log('\nFetching workflow runs...');
 
   const data = await restGet<{ workflow_runs: GitHubWorkflowRun[] }>(
     `/repos/${OWNER}/${REPO}/actions/runs?per_page=10`,
@@ -276,13 +251,13 @@ async function fetchWorkflows(): Promise<DashboardData["workflows"]> {
   };
 }
 
-async function fetchProject(): Promise<DashboardData["project"]> {
-  console.log("\nFetching Projects V2 data...");
+async function fetchProject(): Promise<DashboardData['project']> {
+  console.log('\nFetching Projects V2 data...');
 
   // Try both user and organization queries
-  for (const ownerType of ["user", "organization"] as const) {
+  for (const ownerType of ['user', 'organization'] as const) {
     const query =
-      ownerType === "user"
+      ownerType === 'user'
         ? `
       query($login: String!, $projectNumber: Int!) {
         user(login: $login) {
@@ -360,22 +335,22 @@ async function fetchProject(): Promise<DashboardData["project"]> {
     const data = await graphql<ProjectV2Response>(query, variables);
     if (!data) continue;
 
-    const ownerData = data[ownerType === "user" ? "user" : "organization"];
+    const ownerData = data[ownerType === 'user' ? 'user' : 'organization'];
     const project = ownerData?.projectV2;
     if (!project) continue;
 
     console.log(`  Found project: ${project.title}`);
 
     const items: ProjectItem[] = project.items.nodes.map((node) => {
-      const title = node.content?.title ?? "(no title)";
+      const title = node.content?.title ?? '(no title)';
       let status: string | null = null;
       let priority: string | null = null;
 
       for (const fv of node.fieldValues.nodes) {
         const fieldName = fv.field?.name?.toLowerCase();
-        if (fieldName === "status" && fv.name) {
+        if (fieldName === 'status' && fv.name) {
           status = fv.name;
-        } else if (fieldName === "priority" && fv.name) {
+        } else if (fieldName === 'priority' && fv.name) {
           priority = fv.name;
         }
       }
@@ -387,7 +362,7 @@ async function fetchProject(): Promise<DashboardData["project"]> {
     return { items };
   }
 
-  console.log("  No Projects V2 found (skipping)");
+  console.log('  No Projects V2 found (skipping)');
   return { items: [] };
 }
 
@@ -415,23 +390,23 @@ async function main(): Promise<void> {
   };
 
   // Ensure docs/ directory exists
-  const fs = await import("node:fs");
-  const path = await import("node:path");
+  const fs = await import('node:fs');
+  const path = await import('node:path');
 
-  const docsDir = path.join(process.cwd(), "docs");
+  const docsDir = path.join(process.cwd(), 'docs');
   if (!fs.existsSync(docsDir)) {
     fs.mkdirSync(docsDir, { recursive: true });
-    console.log("\nCreated docs/ directory");
+    console.log('\nCreated docs/ directory');
   }
 
-  const outputPath = path.join(docsDir, "dashboard-data.json");
-  fs.writeFileSync(outputPath, JSON.stringify(dashboardData, null, 2) + "\n");
+  const outputPath = path.join(docsDir, 'dashboard-data.json');
+  fs.writeFileSync(outputPath, JSON.stringify(dashboardData, null, 2) + '\n');
 
   console.log(`\nDashboard data written to ${outputPath}`);
-  console.log("Done!");
+  console.log('Done!');
 }
 
 main().catch((err) => {
-  console.error("Fatal error:", err);
+  console.error('Fatal error:', err);
   process.exit(1);
 });

@@ -69,8 +69,9 @@ async function handleConvertSelection(): Promise<void> {
       func: () => window.getSelection()?.toString() ?? '',
     });
     selectedText = (results?.[0]?.result as string) ?? '';
-  } catch {
+  } catch (err) {
     // Scripting may fail on restricted pages (chrome://, chrome-extension://, etc.)
+    console.debug('[md2Lark]', err);
     flashBadge('!', '#ff4444');
     return;
   }
@@ -87,23 +88,25 @@ async function handleConvertSelection(): Promise<void> {
       target: { tabId },
       files: ['content.js'],
     });
-  } catch {
+  } catch (err) {
+    console.debug('[md2Lark]', err);
     flashBadge('!', '#ff4444');
     return;
   }
 
   try {
-    const response = await chrome.tabs.sendMessage(tabId, {
+    const response = (await chrome.tabs.sendMessage(tabId, {
       type: 'convert-and-copy',
       markdown: selectedText,
-    }) as { success: boolean; error?: string };
+    })) as { success: boolean; error?: string };
 
     if (response?.success) {
       flashBadge('OK', '#44bb44');
     } else {
       flashBadge('!', '#ff4444');
     }
-  } catch {
+  } catch (err) {
+    console.debug('[md2Lark]', err);
     flashBadge('!', '#ff4444');
   }
 }

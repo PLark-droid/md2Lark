@@ -18,10 +18,7 @@ import type { ParserOptions, ParseResult, ParseMetadata } from './types.js';
  * (`tokens`, `items`, `rows`, `header`) so callers do not need to know
  * about the internal structure of each token type.
  */
-function walkTokens(
-  tokens: Token[],
-  visitor: (token: Token) => void,
-): void {
+function walkTokens(tokens: Token[], visitor: (token: Token) => void): void {
   for (const token of tokens) {
     visitor(token);
 
@@ -118,14 +115,10 @@ function extractMetadata(tokens: Token[]): ParseMetadata {
  * console.log(result.tokens[0].type); // 'heading'
  * ```
  */
-export function parseMarkdown(
-  markdown: string,
-  options?: ParserOptions,
-): ParseResult {
+export function parseMarkdown(markdown: string, options?: ParserOptions): ParseResult {
   // Normalise falsy / non-string inputs to the empty string so the lexer
   // never receives `undefined` or `null`.
-  const source: string =
-    typeof markdown === 'string' ? markdown : '';
+  const source: string = typeof markdown === 'string' ? markdown : '';
 
   // When the input is empty or whitespace-only, short-circuit to avoid
   // running the lexer on content that would only produce space tokens.

@@ -1,7 +1,4 @@
-import {
-  LarkRenderer,
-  markdownToLarkHtml,
-} from '../../src/core/renderer';
+import { LarkRenderer, markdownToLarkHtml } from '../../src/core/renderer';
 import { Lexer } from 'marked';
 
 /**
@@ -16,14 +13,11 @@ function render(md: string): string {
 // ---------------------------------------------------------------------------
 
 describe('LarkRenderer - headings', () => {
-  it.each([1, 2, 3, 4, 5, 6] as const)(
-    'renders h%i correctly',
-    (level) => {
-      const hashes = '#'.repeat(level);
-      const html = render(`${hashes} Heading ${level}`);
-      expect(html).toContain(`<h${level}>Heading ${level}</h${level}>`);
-    },
-  );
+  it.each([1, 2, 3, 4, 5, 6] as const)('renders h%i correctly', (level) => {
+    const hashes = '#'.repeat(level);
+    const html = render(`${hashes} Heading ${level}`);
+    expect(html).toContain(`<h${level}>Heading ${level}</h${level}>`);
+  });
 
   it('renders heading with inline formatting', () => {
     const html = render('## Hello **bold** and *italic*');
@@ -169,8 +163,7 @@ describe('LarkRenderer - lists', () => {
 // ---------------------------------------------------------------------------
 
 describe('LarkRenderer - tables', () => {
-  const tableMd =
-    '| Name | Age |\n| --- | --- |\n| Alice | 30 |\n| Bob | 25 |\n';
+  const tableMd = '| Name | Age |\n| --- | --- |\n| Alice | 30 |\n| Bob | 25 |\n';
 
   it('renders table with thead and tbody', () => {
     const html = render(tableMd);
@@ -202,8 +195,7 @@ describe('LarkRenderer - tables', () => {
   });
 
   it('renders table with alignment', () => {
-    const md =
-      '| Left | Center | Right |\n| :--- | :---: | ---: |\n| L | C | R |\n';
+    const md = '| Left | Center | Right |\n| :--- | :---: | ---: |\n| L | C | R |\n';
     const html = render(md);
     expect(html).toContain('align="left"');
     expect(html).toContain('align="center"');
@@ -405,5 +397,12 @@ describe('LarkRenderer - class export', () => {
     expect(html).toContain('<h1>');
     expect(html).toContain('<strong>world</strong>');
     expect(html).toContain('</h1>');
+  });
+
+  it('renders markdown via render() method', () => {
+    const renderer = new LarkRenderer();
+    const html = renderer.render('# Hello **world**');
+    expect(html).toContain('<h1');
+    expect(html).toContain('<strong>world</strong>');
   });
 });

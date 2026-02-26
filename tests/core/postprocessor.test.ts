@@ -3,12 +3,9 @@ import { postprocessHtml } from '../../src/core/postprocessor';
 describe('postprocessHtml', () => {
   describe('wrapTablesForOverflow', () => {
     it('should wrap tables with overflow div', () => {
-      const input =
-        '<table style="border-collapse: collapse;"><tr><td>cell</td></tr></table>';
+      const input = '<table style="border-collapse: collapse;"><tr><td>cell</td></tr></table>';
       const result = postprocessHtml(input);
-      expect(result).toContain(
-        '<div style="overflow-x: auto; max-width: 100%;">',
-      );
+      expect(result).toContain('<div style="overflow-x: auto; max-width: 100%;">');
       expect(result).toContain('</table></div>');
     });
 
@@ -16,9 +13,7 @@ describe('postprocessHtml', () => {
       const input =
         '<table><tr><td>1</td></tr></table><p>text</p><table><tr><td>2</td></tr></table>';
       const result = postprocessHtml(input);
-      const divCount = (
-        result.match(/<div style="overflow-x: auto/g) || []
-      ).length;
+      const divCount = (result.match(/<div style="overflow-x: auto/g) || []).length;
       expect(divCount).toBe(2);
     });
 
@@ -35,7 +30,8 @@ describe('postprocessHtml', () => {
     });
 
     it('should not double-wrap already wrapped tables', () => {
-      const input = '<div style="overflow-x: auto; max-width: 100%;"><table><tr><td>cell</td></tr></table></div>';
+      const input =
+        '<div style="overflow-x: auto; max-width: 100%;"><table><tr><td>cell</td></tr></table></div>';
       const result = postprocessHtml(input);
       const divCount = (result.match(/<div style="overflow-x: auto/g) || []).length;
       expect(divCount).toBe(1);

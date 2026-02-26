@@ -64,14 +64,8 @@ function convertLatexToCodeFallback(markdown: string): string {
  * @returns Markdown with checkbox syntax replaced by emoji.
  */
 function convertCheckboxes(markdown: string): string {
-  let result = markdown.replace(
-    /^(\s*[-*+]\s)\[x\]/gim,
-    '$1\u2705',
-  );
-  result = result.replace(
-    /^(\s*[-*+]\s)\[ \]/gm,
-    '$1\u2B1C',
-  );
+  let result = markdown.replace(/^(\s*[-*+]\s)\[x\]/gim, '$1\u2705');
+  result = result.replace(/^(\s*[-*+]\s)\[ \]/gm, '$1\u2B1C');
   return result;
 }
 

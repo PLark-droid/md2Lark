@@ -152,9 +152,7 @@ const larkRendererOverrides: RendererObject = {
     let content = '';
     for (const tok of item.tokens) {
       if (tok.type === 'paragraph') {
-        content += this.parser.parseInline(
-          (tok as Tokens.Paragraph).tokens,
-        );
+        content += this.parser.parseInline((tok as Tokens.Paragraph).tokens);
       } else if (tok.type === 'list') {
         content += this.list(tok as Tokens.List);
       } else {
@@ -162,6 +160,9 @@ const larkRendererOverrides: RendererObject = {
       }
     }
 
+    // NOTE: The preprocessor converts checkbox syntax to emoji before parsing,
+    // so this branch is only reached when the renderer is used directly without
+    // the preprocessor (e.g., via LarkRenderer.render() or markdownToLarkHtml()).
     if (item.task) {
       const checkbox = item.checked ? '&#9745; ' : '&#9744; ';
       content = checkbox + content;
@@ -235,9 +236,7 @@ const larkRendererOverrides: RendererObject = {
     const text = this.parser.parseInline(tokens);
     const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
     // Sanitize dangerous URI schemes before rendering.
-    const safeHref = /^\s*(?:javascript|vbscript|data)\s*:/i.test(href)
-      ? ''
-      : escapeHtml(href);
+    const safeHref = /^\s*(?:javascript|vbscript|data)\s*:/i.test(href) ? '' : escapeHtml(href);
     return `<a href="${safeHref}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`;
   },
 
@@ -295,8 +294,7 @@ export function renderToLarkHtml(tokens: Token[] | TokensList): string {
 // ---------------------------------------------------------------------------
 
 /** Static regex patterns used in applyStyleTemplate for special selectors. */
-const INLINE_CODE_RE =
-  /(?<!<pre[^>]*>\s*)<code(?![^>]*class="language-)(?![^>]*style=")>/g;
+const INLINE_CODE_RE = /(?<!<pre[^>]*>\s*)<code(?![^>]*class="language-)(?![^>]*style=")>/g;
 const CODE_BARE_RE = /<code(?![^>]*style=")>/g;
 const CODE_WITH_ATTRS_RE = /<code((?![^>]*style=")[^>]*)>/g;
 
@@ -308,17 +306,12 @@ const CODE_WITH_ATTRS_RE = /<code((?![^>]*style=")[^>]*)>/g;
  *   [1] matches `<tag ...>` without style  (add style to tags with other attrs)
  *   [2] matches `<tag>`              (add style to bare tags)
  */
-const tagRegexCache = new Map<
-  string,
-  readonly [RegExp, RegExp, RegExp]
->();
+const tagRegexCache = new Map<string, readonly [RegExp, RegExp, RegExp]>();
 
 /**
  * Get (or create and cache) the regex triple for a given HTML tag name.
  */
-function getTagRegexes(
-  tag: string,
-): readonly [RegExp, RegExp, RegExp] {
+function getTagRegexes(tag: string): readonly [RegExp, RegExp, RegExp] {
   let cached = tagRegexCache.get(tag);
   if (!cached) {
     cached = [
@@ -345,9 +338,7 @@ function applyStyleTemplate(html: string, template: StyleTemplate): string {
   const entries = Object.entries(template.styles);
   const inlineCodeEntry = entries.find(([s]) => s === 'inline-code');
   const codeEntry = entries.find(([s]) => s === 'code');
-  const otherEntries = entries.filter(
-    ([s]) => s !== 'inline-code' && s !== 'code',
-  );
+  const otherEntries = entries.filter(([s]) => s !== 'inline-code' && s !== 'code');
 
   // Build ordered list: inline-code first, then code, then the rest.
   const ordered: Array<[string, string]> = [];
@@ -359,26 +350,17 @@ function applyStyleTemplate(html: string, template: StyleTemplate): string {
     if (selector === 'inline-code') {
       // Special case: inline <code> elements that are NOT inside a <pre> block.
       INLINE_CODE_RE.lastIndex = 0;
-      result = result.replace(
-        INLINE_CODE_RE,
-        `<code style="${style}">`,
-      );
+      result = result.replace(INLINE_CODE_RE, `<code style="${style}">`);
       continue;
     }
 
     if (selector === 'code') {
       // Apply to <code> tags that do NOT already have a style attribute.
       CODE_BARE_RE.lastIndex = 0;
-      result = result.replace(
-        CODE_BARE_RE,
-        `<code style="${style}">`,
-      );
+      result = result.replace(CODE_BARE_RE, `<code style="${style}">`);
       // Also handle <code> with a class but no style (e.g., language-tagged).
       CODE_WITH_ATTRS_RE.lastIndex = 0;
-      result = result.replace(
-        CODE_WITH_ATTRS_RE,
-        `<code style="${style}"$1>`,
-      );
+      result = result.replace(CODE_WITH_ATTRS_RE, `<code style="${style}"$1>`);
       continue;
     }
 
@@ -388,14 +370,8 @@ function applyStyleTemplate(html: string, template: StyleTemplate): string {
         const [replaceStyleRe, , bareTagRe] = getTagRegexes(tag);
         replaceStyleRe.lastIndex = 0;
         bareTagRe.lastIndex = 0;
-        result = result.replace(
-          replaceStyleRe,
-          `<${tag} style="${style}"`,
-        );
-        result = result.replace(
-          bareTagRe,
-          `<${tag} style="${style}">`,
-        );
+        result = result.replace(replaceStyleRe, `<${tag} style="${style}"`);
+        result = result.replace(bareTagRe, `<${tag} style="${style}">`);
       }
       continue;
     }
@@ -408,18 +384,9 @@ function applyStyleTemplate(html: string, template: StyleTemplate): string {
       addStyleRe.lastIndex = 0;
       bareTagRe.lastIndex = 0;
 
-      result = result.replace(
-        replaceStyleRe,
-        `<${tag} style="${style}"`,
-      );
-      result = result.replace(
-        addStyleRe,
-        `<${tag} style="${style}"$1>`,
-      );
-      result = result.replace(
-        bareTagRe,
-        `<${tag} style="${style}">`,
-      );
+      result = result.replace(replaceStyleRe, `<${tag} style="${style}"`);
+      result = result.replace(addStyleRe, `<${tag} style="${style}"$1>`);
+      result = result.replace(bareTagRe, `<${tag} style="${style}">`);
     }
   }
 
@@ -448,10 +415,7 @@ function applyStyleTemplate(html: string, template: StyleTemplate): string {
  * // => heading with enhanced inline styles
  * ```
  */
-export function markdownToLarkHtml(
-  markdown: string,
-  templateName?: string,
-): string {
+export function markdownToLarkHtml(markdown: string, templateName?: string): string {
   let html = larkMarked.parse(markdown, { async: false }) as string;
 
   // Apply style template overrides if specified.

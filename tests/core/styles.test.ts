@@ -1,8 +1,4 @@
-import {
-  getStyleTemplate,
-  getElementStyle,
-  STYLE_TEMPLATES,
-} from '../../src/core/styles';
+import { getStyleTemplate, getElementStyle, STYLE_TEMPLATES } from '../../src/core/styles';
 import type { StyleTemplateName } from '../../src/core/styles';
 import { markdownToLarkHtml } from '../../src/core/renderer';
 
@@ -14,9 +10,7 @@ describe('STYLE_TEMPLATES', () => {
   it('contains exactly three templates', () => {
     const names = Object.keys(STYLE_TEMPLATES);
     expect(names).toHaveLength(3);
-    expect(names).toEqual(
-      expect.arrayContaining(['minimal', 'enhanced', 'document']),
-    );
+    expect(names).toEqual(expect.arrayContaining(['minimal', 'enhanced', 'document']));
   });
 
   it.each(['minimal', 'enhanced', 'document'] as StyleTemplateName[])(
@@ -153,19 +147,13 @@ describe('markdownToLarkHtml with style templates', () => {
   });
 
   it('applies link styles from enhanced template', () => {
-    const html = markdownToLarkHtml(
-      '[Link](https://example.com)',
-      'enhanced',
-    );
+    const html = markdownToLarkHtml('[Link](https://example.com)', 'enhanced');
     expect(html).toContain('font-weight: 500');
     expect(html).toContain('color: #3370ff');
   });
 
   it('applies link styles from document template', () => {
-    const html = markdownToLarkHtml(
-      '[Link](https://example.com)',
-      'document',
-    );
+    const html = markdownToLarkHtml('[Link](https://example.com)', 'document');
     expect(html).toContain('text-decoration: underline');
     expect(html).toContain('color: #2962ff');
   });

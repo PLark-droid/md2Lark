@@ -21,46 +21,20 @@ import { debounce, htmlToPlainText } from './utils.js';
 // DOM references
 // ---------------------------------------------------------------------------
 
-const input = document.getElementById(
-  'markdown-input',
-) as HTMLTextAreaElement | null;
-const convertBtn = document.getElementById(
-  'convert-btn',
-) as HTMLButtonElement | null;
+const input = document.getElementById('markdown-input') as HTMLTextAreaElement | null;
+const convertBtn = document.getElementById('convert-btn') as HTMLButtonElement | null;
 const statusEl = document.getElementById('status') as HTMLDivElement | null;
-const previewFrame = document.getElementById(
-  'preview-frame',
-) as HTMLIFrameElement | null;
-const htmlSourceCode = document.querySelector(
-  '#html-source code',
-) as HTMLElement | null;
-const previewTab = document.getElementById(
-  'preview-tab',
-) as HTMLDivElement | null;
-const sourceTab = document.getElementById(
-  'source-tab',
-) as HTMLDivElement | null;
-const tabButtons = document.querySelectorAll<HTMLButtonElement>(
-  '.preview-tabs .tab',
-);
-const fetchAiBtn = document.getElementById(
-  'fetch-ai-btn',
-) as HTMLButtonElement | null;
-const historyBtn = document.getElementById(
-  'history-btn',
-) as HTMLButtonElement | null;
-const historyPanel = document.getElementById(
-  'history-panel',
-) as HTMLDivElement | null;
-const historyList = document.getElementById(
-  'history-list',
-) as HTMLDivElement | null;
-const historyEmpty = document.getElementById(
-  'history-empty',
-) as HTMLDivElement | null;
-const clearHistoryBtn = document.getElementById(
-  'clear-history-btn',
-) as HTMLButtonElement | null;
+const previewFrame = document.getElementById('preview-frame') as HTMLIFrameElement | null;
+const htmlSourceCode = document.querySelector('#html-source code') as HTMLElement | null;
+const previewTab = document.getElementById('preview-tab') as HTMLDivElement | null;
+const sourceTab = document.getElementById('source-tab') as HTMLDivElement | null;
+const tabButtons = document.querySelectorAll<HTMLButtonElement>('.preview-tabs .tab');
+const fetchAiBtn = document.getElementById('fetch-ai-btn') as HTMLButtonElement | null;
+const historyBtn = document.getElementById('history-btn') as HTMLButtonElement | null;
+const historyPanel = document.getElementById('history-panel') as HTMLDivElement | null;
+const historyList = document.getElementById('history-list') as HTMLDivElement | null;
+const historyEmpty = document.getElementById('history-empty') as HTMLDivElement | null;
+const clearHistoryBtn = document.getElementById('clear-history-btn') as HTMLButtonElement | null;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -69,11 +43,7 @@ const clearHistoryBtn = document.getElementById(
 /**
  * Show a status message for a limited duration.
  */
-function showStatus(
-  message: string,
-  kind: 'success' | 'error',
-  durationMs = 2000,
-): void {
+function showStatus(message: string, kind: 'success' | 'error', durationMs = 2000): void {
   if (!statusEl) return;
 
   statusEl.textContent = message;
@@ -240,8 +210,7 @@ async function handleFetchFromAi(): Promise<void> {
     // 2. Check if the tab is a supported AI page.
     const url = tab.url;
     const isClaude = url.includes('claude.ai');
-    const isChatGPT =
-      url.includes('chatgpt.com') || url.includes('chat.openai.com');
+    const isChatGPT = url.includes('chatgpt.com') || url.includes('chat.openai.com');
 
     if (!isClaude && !isChatGPT) {
       showStatus('Not on a Claude or ChatGPT page.', 'error', 3000);
@@ -273,10 +242,7 @@ async function handleFetchFromAi(): Promise<void> {
         }
 
         // ChatGPT extraction
-        if (
-          pageUrl.includes('chatgpt.com') ||
-          pageUrl.includes('chat.openai.com')
-        ) {
+        if (pageUrl.includes('chatgpt.com') || pageUrl.includes('chat.openai.com')) {
           const chatgptSelectors = [
             '[data-message-author-role="assistant"] .markdown',
             '[data-message-author-role="assistant"]',
@@ -313,8 +279,7 @@ async function handleFetchFromAi(): Promise<void> {
     const serviceName = isClaude ? 'Claude' : 'ChatGPT';
     showStatus(`Fetched from ${serviceName}!`, 'success');
   } catch (err: unknown) {
-    const message =
-      err instanceof Error ? err.message : 'Failed to fetch from AI page.';
+    const message = err instanceof Error ? err.message : 'Failed to fetch from AI page.';
     showStatus(message, 'error', 4000);
   } finally {
     fetchAiBtn.disabled = false;
@@ -424,7 +389,7 @@ if (historyList) {
     const item = target.closest('.history-item') as HTMLElement | null;
     if (item) {
       const id = item.dataset['id'];
-      const entry = currentHistoryEntries.find(en => en.id === id);
+      const entry = currentHistoryEntries.find((en) => en.id === id);
       if (entry && input) {
         input.value = entry.markdown;
         renderPreview();
@@ -488,8 +453,7 @@ async function handleConvert(): Promise<void> {
 
     showStatus('Copied!', 'success');
   } catch (err: unknown) {
-    const message =
-      err instanceof Error ? err.message : 'An unknown error occurred.';
+    const message = err instanceof Error ? err.message : 'An unknown error occurred.';
     showStatus(message, 'error', 4000);
   } finally {
     if (convertBtn) convertBtn.disabled = false;

@@ -27,8 +27,4 @@ export { getStyleTemplate, getElementStyle, STYLE_TEMPLATES } from './styles.js'
 export type { StyleTemplate, StyleTemplateName } from './styles.js';
 
 // Types
-export type {
-  ParserOptions,
-  ParseResult,
-  ParseMetadata,
-} from './types.js';
+export type { ParserOptions, ParseResult, ParseMetadata } from './types.js';

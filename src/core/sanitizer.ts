@@ -30,23 +30,22 @@ const DANGEROUS_TAGS = [
  *   [0] matches paired tags with content  (e.g. `<script ...>...</script>`)
  *   [1] matches self-closing / orphaned opening tags  (e.g. `<script ... />`)
  */
-const DANGEROUS_TAG_PATTERNS: ReadonlyArray<readonly [RegExp, RegExp]> =
-  DANGEROUS_TAGS.map((tag) => [
-    new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}\\s*>`, 'gi'),
-    new RegExp(`<${tag}\\b[^>]*/?>`, 'gi'),
-  ] as const);
+const DANGEROUS_TAG_PATTERNS: ReadonlyArray<readonly [RegExp, RegExp]> = DANGEROUS_TAGS.map(
+  (tag) =>
+    [
+      new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}\\s*>`, 'gi'),
+      new RegExp(`<${tag}\\b[^>]*/?>`, 'gi'),
+    ] as const,
+);
 
 /** Matches inline event-handler attributes (onclick, onerror, ...). */
-const EVENT_HANDLER_RE =
-  /\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
+const EVENT_HANDLER_RE = /\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
 
 /** Matches href/src/action/formaction with double-quoted values. */
-const ATTR_DOUBLE_QUOTE_RE =
-  /(href|src|action|formaction)\s*=\s*"([^"]*)"/gi;
+const ATTR_DOUBLE_QUOTE_RE = /(href|src|action|formaction)\s*=\s*"([^"]*)"/gi;
 
 /** Matches href/src/action/formaction with single-quoted values. */
-const ATTR_SINGLE_QUOTE_RE =
-  /(href|src|action|formaction)\s*=\s*'([^']*)'/gi;
+const ATTR_SINGLE_QUOTE_RE = /(href|src|action|formaction)\s*=\s*'([^']*)'/gi;
 
 /** Hex-encoded HTML entity (e.g. `&#x6A;`). */
 const HEX_ENTITY_RE = /&#x([0-9a-fA-F]+);/gi;
@@ -106,29 +105,23 @@ export function sanitizeHtml(html: string): string {
 
   // 3. Decode HTML entities in href/src/action/formaction values to catch encoded schemes.
   ATTR_DOUBLE_QUOTE_RE.lastIndex = 0;
-  result = result.replace(
-    ATTR_DOUBLE_QUOTE_RE,
-    (_match, attr: string, value: string) => {
-      const decoded = value
-        .replace(HEX_ENTITY_RE, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)))
-        .replace(DEC_ENTITY_RE, (_m, dec: string) => String.fromCharCode(parseInt(dec, 10)))
-        .replace(/[\x00-\x1f]+/g, '');
-      const safe = decoded.replace(/"/g, '&quot;');
-      return `${attr}="${safe}"`;
-    },
-  );
+  result = result.replace(ATTR_DOUBLE_QUOTE_RE, (_match, attr: string, value: string) => {
+    const decoded = value
+      .replace(HEX_ENTITY_RE, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)))
+      .replace(DEC_ENTITY_RE, (_m, dec: string) => String.fromCharCode(parseInt(dec, 10)))
+      .replace(/[\x00-\x1f]+/g, '');
+    const safe = decoded.replace(/"/g, '&quot;');
+    return `${attr}="${safe}"`;
+  });
   ATTR_SINGLE_QUOTE_RE.lastIndex = 0;
-  result = result.replace(
-    ATTR_SINGLE_QUOTE_RE,
-    (_match, attr: string, value: string) => {
-      const decoded = value
-        .replace(HEX_ENTITY_RE, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)))
-        .replace(DEC_ENTITY_RE, (_m, dec: string) => String.fromCharCode(parseInt(dec, 10)))
-        .replace(/[\x00-\x1f]+/g, '');
-      const safe = decoded.replace(/'/g, '&#39;');
-      return `${attr}='${safe}'`;
-    },
-  );
+  result = result.replace(ATTR_SINGLE_QUOTE_RE, (_match, attr: string, value: string) => {
+    const decoded = value
+      .replace(HEX_ENTITY_RE, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)))
+      .replace(DEC_ENTITY_RE, (_m, dec: string) => String.fromCharCode(parseInt(dec, 10)))
+      .replace(/[\x00-\x1f]+/g, '');
+    const safe = decoded.replace(/'/g, '&#39;');
+    return `${attr}='${safe}'`;
+  });
 
   // 4. Neutralize dangerous URI schemes in href, src, action, formaction.
   DANGEROUS_URI_RE.lastIndex = 0;
