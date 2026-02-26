@@ -298,8 +298,14 @@ const larkRendererOverrides: RendererObject = {
       tbody = `<tbody>\n${bodyRows}</tbody>\n`;
     }
 
+    // Build colgroup for column width hints (respected by Lark on paste).
+    const colgroup = '<colgroup>\n' +
+      colWidths.map((w) => `<col style="width: ${w}%;" />`).join('\n') +
+      '\n</colgroup>\n';
+
     return (
-      `<table style="${TABLE_STYLE} width: 100%;">\n` +
+      `<table style="${TABLE_STYLE} width: 100%; table-layout: fixed;">\n` +
+      colgroup +
       `<thead>\n<tr>${headerCells}</tr>\n</thead>\n` +
       tbody +
       `</table>\n`
