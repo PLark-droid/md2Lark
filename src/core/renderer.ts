@@ -130,7 +130,8 @@ function renderCellWithWidth(
   const tag = cell.header ? 'th' : 'td';
   const alignAttr = cell.align ? ` align="${cell.align}"` : '';
   const content = parser.parseInline(cell.tokens);
-  const widthStyle = `width: ${widthPercent}%; min-width: ${Math.max(60, widthPercent * 3)}px;`;
+  const minWidth = Math.round(Math.max(60, widthPercent * 3));
+  const widthStyle = `width: ${widthPercent}%; min-width: ${minWidth}px;`;
   return `<${tag} style="${CELL_STYLE} ${widthStyle}"${alignAttr}>${content}</${tag}>`;
 }
 
