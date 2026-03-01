@@ -507,3 +507,123 @@ header .subtitle {
 .history-panel::-webkit-scrollbar-track {
   background-color: transparent;
 }
+
+/* ------------------------------------------------------------------
+ * Lark integration styles
+ * ------------------------------------------------------------------ */
+
+.lark-btn {
+  background: #3370ff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.2s, opacity 0.2s;
+}
+
+.lark-btn:hover:not(:disabled) {
+  background: #2860e0;
+}
+
+.lark-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.lark-btn.sending {
+  background: #1a4fd6;
+}
+
+.lark-progress {
+  padding: 8px 16px;
+  border-top: 1px solid #e5e5e5;
+}
+
+.lark-progress.hidden {
+  display: none;
+}
+
+.lark-progress-bar {
+  height: 4px;
+  background: #e5e5e5;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.lark-progress-fill {
+  height: 100%;
+  background: #3370ff;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+
+.lark-progress-text {
+  font-size: 11px;
+  color: #666;
+}
+
+.lark-panel {
+  padding: 12px 16px;
+  border-top: 1px solid #e5e5e5;
+  background: #fafafa;
+}
+
+.lark-panel.hidden {
+  display: none;
+}
+
+.lark-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.lark-panel-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.lark-auth-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e5e5e5;
+}
+
+#lark-auth-text {
+  font-size: 12px;
+  color: #666;
+}
+
+#lark-auth-text.connected {
+  color: #34a853;
+}
+
+.lark-doc-settings {
+  margin-top: 8px;
+}
+
+.lark-doc-settings.hidden {
+  display: none;
+}
+
+.lark-doc-settings label {
+  display: block;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.lark-doc-settings .text-input {
+  width: 100%;
+  box-sizing: border-box;
+}

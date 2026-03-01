@@ -13,5 +13,5 @@
     "sourceMap": false,
     "types": ["chrome"]
   },
-  "include": ["src/extension/**/*", "src/core/**/*"]
+  "include": ["src/extension/**/*", "src/core/**/*", "src/lark-api/**/*"]
 }

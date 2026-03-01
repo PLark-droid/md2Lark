@@ -18,6 +18,8 @@ const tableBorderStyleEl = document.getElementById(
 ) as HTMLSelectElement | null;
 const customCssEl = document.getElementById('custom-css') as HTMLTextAreaElement | null;
 const saveStatusEl = document.getElementById('save-status') as HTMLSpanElement | null;
+const larkRegionEl = document.getElementById('lark-region') as HTMLSelectElement | null;
+const larkAppIdEl = document.getElementById('lark-app-id') as HTMLInputElement | null;
 
 /**
  * Populate form fields with current settings.
@@ -28,6 +30,8 @@ function populateForm(settings: Md2LarkSettings): void {
   if (styleTemplateEl) styleTemplateEl.value = settings.styleTemplate;
   if (tableBorderStyleEl) tableBorderStyleEl.value = settings.tableBorderStyle;
   if (customCssEl) customCssEl.value = settings.customCss;
+  if (larkRegionEl) larkRegionEl.value = settings.larkRegion;
+  if (larkAppIdEl) larkAppIdEl.value = settings.larkAppId;
 }
 
 /**
@@ -45,11 +49,19 @@ function isValidBorderStyle(v: string): v is Md2LarkSettings['tableBorderStyle']
 }
 
 /**
+ * Type guard for valid Lark region values.
+ */
+function isValidLarkRegion(v: string): v is Md2LarkSettings['larkRegion'] {
+  return ['feishu', 'larksuite'].includes(v);
+}
+
+/**
  * Gather current form values into a settings object.
  */
 function gatherFormValues(): Partial<Md2LarkSettings> {
   const rawTemplate = styleTemplateEl?.value ?? '';
   const rawBorder = tableBorderStyleEl?.value ?? '';
+  const rawRegion = larkRegionEl?.value ?? '';
 
   return {
     gfmEnabled: gfmEnabledEl?.checked ?? true,
@@ -57,6 +69,8 @@ function gatherFormValues(): Partial<Md2LarkSettings> {
     styleTemplate: isValidStyleTemplate(rawTemplate) ? rawTemplate : 'minimal',
     tableBorderStyle: isValidBorderStyle(rawBorder) ? rawBorder : 'solid',
     customCss: customCssEl?.value ?? '',
+    larkRegion: isValidLarkRegion(rawRegion) ? rawRegion : 'larksuite',
+    larkAppId: larkAppIdEl?.value ?? '',
   };
 }
 
@@ -92,6 +106,8 @@ async function init(): Promise<void> {
     styleTemplateEl,
     tableBorderStyleEl,
     customCssEl,
+    larkRegionEl,
+    larkAppIdEl,
   ];
   for (const el of inputs) {
     if (el) {
@@ -105,7 +121,7 @@ async function init(): Promise<void> {
   const debouncedAutoSave = debounce(() => {
     void handleAutoSave();
   }, 500);
-  const textInputs = [defaultCodeLangEl, customCssEl];
+  const textInputs = [defaultCodeLangEl, customCssEl, larkAppIdEl];
   for (const el of textInputs) {
     if (el) {
       el.addEventListener('input', debouncedAutoSave);

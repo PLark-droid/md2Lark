@@ -17,6 +17,9 @@ import type { HistoryEntry } from './history.js';
 import { loadSettings } from './storage.js';
 import { debounce, htmlToPlainText } from './utils.js';
 
+// Lark API imports (lazy loaded when needed)
+// These will be available once the lark-api module is built
+
 // ---------------------------------------------------------------------------
 // DOM references
 // ---------------------------------------------------------------------------
@@ -35,6 +38,17 @@ const historyPanel = document.getElementById('history-panel') as HTMLDivElement 
 const historyList = document.getElementById('history-list') as HTMLDivElement | null;
 const historyEmpty = document.getElementById('history-empty') as HTMLDivElement | null;
 const clearHistoryBtn = document.getElementById('clear-history-btn') as HTMLButtonElement | null;
+
+// Lark integration DOM references
+const sendLarkBtn = document.getElementById('send-lark-btn') as HTMLButtonElement | null;
+const larkProgress = document.getElementById('lark-progress') as HTMLDivElement | null;
+const larkProgressFill = document.getElementById('lark-progress-fill') as HTMLDivElement | null;
+const larkProgressText = document.getElementById('lark-progress-text') as HTMLSpanElement | null;
+const larkPanel = document.getElementById('lark-panel') as HTMLDivElement | null;
+const larkAuthText = document.getElementById('lark-auth-text') as HTMLSpanElement | null;
+const larkAuthBtn = document.getElementById('lark-auth-btn') as HTMLButtonElement | null;
+const larkDocTitle = document.getElementById('lark-doc-title') as HTMLInputElement | null;
+const larkDocSettings = document.getElementById('lark-doc-settings') as HTMLDivElement | null;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -432,6 +446,91 @@ async function refreshHistoryPanel(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Lark integration helpers
+// ---------------------------------------------------------------------------
+
+function showLarkProgress(percent: number, message: string): void {
+  if (larkProgress) larkProgress.classList.remove('hidden');
+  if (larkProgressFill) larkProgressFill.style.width = `${percent}%`;
+  if (larkProgressText) larkProgressText.textContent = message;
+}
+
+function hideLarkProgress(): void {
+  if (larkProgress) larkProgress.classList.add('hidden');
+}
+
+function updateLarkAuthUI(isConnected: boolean): void {
+  if (larkAuthText) {
+    larkAuthText.textContent = isConnected ? 'Connected' : 'Not connected';
+    larkAuthText.className = isConnected ? 'connected' : '';
+  }
+  if (larkAuthBtn) {
+    larkAuthBtn.textContent = isConnected ? 'Disconnect' : 'Connect';
+  }
+  if (sendLarkBtn) {
+    sendLarkBtn.disabled = !isConnected;
+  }
+  if (larkDocSettings) {
+    if (isConnected) {
+      larkDocSettings.classList.remove('hidden');
+    } else {
+      larkDocSettings.classList.add('hidden');
+    }
+  }
+}
+
+/**
+ * Send Markdown content to Lark via API.
+ * This is a stub that will be connected to the actual API client
+ * once the lark-api module is integrated.
+ */
+async function handleSendToLark(): Promise<void> {
+  if (!input) return;
+
+  const markdown = input.value.trim();
+  if (markdown.length === 0) {
+    showStatus('Please enter some Markdown first.', 'error');
+    return;
+  }
+
+  if (sendLarkBtn) {
+    sendLarkBtn.disabled = true;
+    sendLarkBtn.classList.add('sending');
+    sendLarkBtn.textContent = 'Sending...';
+  }
+
+  try {
+    showLarkProgress(10, 'Preparing document...');
+
+    // TODO: Integrate with LarkClient once lark-api module is built
+    // const client = await getLarkClient();
+    // const blocks = markdownToLarkBlocks(markdown);
+    // const title = larkDocTitle?.value || 'md2Lark Document';
+    // const result = await createDocumentWithContent(client, title, blocks, (progress) => {
+    //   const percent = Math.round((progress.current / progress.total) * 100);
+    //   showLarkProgress(percent, progress.message);
+    // });
+    // showStatus(`Document created! ${result.documentUrl}`, 'success', 5000);
+
+    // Temporary stub: simulate progress
+    showLarkProgress(50, 'Creating document...');
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    showLarkProgress(100, 'Done!');
+    showStatus('Lark API integration coming soon!', 'success', 3000);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to send to Lark.';
+    showStatus(message, 'error', 4000);
+  } finally {
+    hideLarkProgress();
+    if (sendLarkBtn) {
+      sendLarkBtn.disabled = false;
+      sendLarkBtn.classList.remove('sending');
+      sendLarkBtn.textContent = 'Send to Lark';
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main handler
 // ---------------------------------------------------------------------------
 
@@ -561,6 +660,37 @@ if (clearHistoryBtn) {
       await clearHistory();
       renderHistoryList([]);
     })();
+  });
+}
+
+// Lark integration event listeners
+if (sendLarkBtn) {
+  sendLarkBtn.addEventListener('click', () => {
+    void handleSendToLark();
+  });
+}
+
+// Lark auth button
+if (larkAuthBtn) {
+  larkAuthBtn.addEventListener('click', () => {
+    // TODO: Connect to LarkClient.authenticate() / logout()
+    const isCurrentlyConnected = larkAuthText?.classList.contains('connected') ?? false;
+    if (isCurrentlyConnected) {
+      updateLarkAuthUI(false);
+      showStatus('Disconnected from Lark', 'success');
+    } else {
+      // Stub: show info message
+      showStatus('Lark OAuth connection coming soon!', 'success', 3000);
+    }
+  });
+}
+
+// Show Lark panel when input has content
+if (input) {
+  input.addEventListener('input', () => {
+    if (larkPanel && input.value.trim().length > 0) {
+      larkPanel.classList.remove('hidden');
+    }
   });
 }
 

@@ -15,6 +15,10 @@ export interface Md2LarkSettings {
   customCss: string;
   /** Style template preset. */
   styleTemplate: 'minimal' | 'enhanced' | 'document';
+  /** Lark region: 'feishu' (China) or 'larksuite' (Global) */
+  larkRegion: 'feishu' | 'larksuite';
+  /** Lark Open Platform App ID */
+  larkAppId: string;
 }
 
 export const DEFAULT_SETTINGS: Md2LarkSettings = {
@@ -23,6 +27,8 @@ export const DEFAULT_SETTINGS: Md2LarkSettings = {
   defaultCodeLanguage: '',
   customCss: '',
   styleTemplate: 'minimal',
+  larkRegion: 'larksuite',
+  larkAppId: '',
 };
 
 /**

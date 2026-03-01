@@ -40,8 +40,15 @@
     </div>
     <div class="actions">
       <button id="convert-btn" type="button" aria-label="Convert Markdown and copy to clipboard">Convert &amp; Copy</button>
+      <button id="send-lark-btn" type="button" class="lark-btn" aria-label="Send Markdown to Lark document" disabled>Send to Lark</button>
       <span id="status" class="status" aria-live="polite"></span>
       <button id="history-btn" type="button" class="icon-btn" aria-label="Toggle conversion history" title="History">History</button>
+    </div>
+    <div id="lark-progress" class="lark-progress hidden">
+      <div class="lark-progress-bar">
+        <div id="lark-progress-fill" class="lark-progress-fill"></div>
+      </div>
+      <span id="lark-progress-text" class="lark-progress-text"></span>
     </div>
     <div id="history-panel" class="history-panel hidden">
       <div class="history-header">
@@ -50,6 +57,19 @@
       </div>
       <div id="history-list" class="history-list"></div>
       <div id="history-empty" class="history-empty">No conversion history yet.</div>
+    </div>
+    <div id="lark-panel" class="lark-panel hidden">
+      <div class="lark-panel-header">
+        <span class="lark-panel-title">Lark Connection</span>
+      </div>
+      <div id="lark-auth-status" class="lark-auth-status">
+        <span id="lark-auth-text">Not connected</span>
+        <button id="lark-auth-btn" type="button" class="text-btn">Connect</button>
+      </div>
+      <div id="lark-doc-settings" class="lark-doc-settings hidden">
+        <label for="lark-doc-title">Document Title</label>
+        <input type="text" id="lark-doc-title" placeholder="New Document" class="text-input" />
+      </div>
     </div>
   </div>
 

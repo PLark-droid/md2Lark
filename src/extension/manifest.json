@@ -3,12 +3,14 @@
   "name": "md2Lark",
   "version": "0.1.0",
   "description": "Convert Markdown to Lark-optimized format for perfect paste",
-  "permissions": ["clipboardWrite", "activeTab", "scripting", "storage"],
+  "permissions": ["clipboardWrite", "activeTab", "scripting", "storage", "identity"],
   "options_page": "options.html",
   "host_permissions": [
     "https://claude.ai/*",
     "https://chatgpt.com/*",
-    "https://chat.openai.com/*"
+    "https://chat.openai.com/*",
+    "https://open.larksuite.com/*",
+    "https://open.feishu.cn/*"
   ],
   "background": {
     "service_worker": "background.js"

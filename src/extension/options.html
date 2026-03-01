@@ -72,6 +72,29 @@
       </div>
     </section>
 
+    <section class="settings-group">
+      <h2>Lark API</h2>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <label for="lark-region">Lark Region</label>
+          <p class="setting-desc">Select Feishu (China) or Lark Suite (Global).</p>
+        </div>
+        <select id="lark-region" class="select-input">
+          <option value="larksuite">Lark Suite (Global)</option>
+          <option value="feishu">Feishu (China)</option>
+        </select>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <label for="lark-app-id">App ID</label>
+          <p class="setting-desc">Your Lark Open Platform application ID.</p>
+        </div>
+        <input type="text" id="lark-app-id" placeholder="cli_xxxxxxxx" class="text-input" />
+      </div>
+    </section>
+
     <div class="actions">
       <span id="save-status" class="save-status" aria-live="polite"></span>
     </div>

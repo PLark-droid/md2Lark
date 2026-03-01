@@ -110,3 +110,53 @@ async function handleConvertSelection(): Promise<void> {
     flashBadge('!', '#ff4444');
   }
 }
+
+// ---------------------------------------------------------------------------
+// Lark OAuth message handler
+// ---------------------------------------------------------------------------
+
+/**
+ * Handle messages from popup/options for Lark OAuth flow.
+ * The actual OAuth logic is in src/lark-api/auth.ts.
+ * This handler coordinates the chrome.identity.launchWebAuthFlow.
+ */
+chrome.runtime.onMessage.addListener(
+  (message: { type: string; [key: string]: unknown }, _sender, sendResponse) => {
+    if (message.type === 'lark-auth-start') {
+      // Stub: will be connected to auth.ts launchAuthFlow
+      void handleLarkAuth(message).then(sendResponse);
+      return true; // Keep message channel open for async response
+    }
+
+    if (message.type === 'lark-auth-logout') {
+      void handleLarkLogout().then(sendResponse);
+      return true;
+    }
+
+    return false;
+  },
+);
+
+async function handleLarkAuth(
+  _message: { type: string; [key: string]: unknown },
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // TODO: Integrate with LarkClient.authenticate() from lark-api/auth.ts
+    // const config = await loadLarkConfig();
+    // const result = await launchAuthFlow(config);
+    // return { success: true };
+    return { success: false, error: 'Lark OAuth not yet implemented' };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Authentication failed';
+    return { success: false, error: msg };
+  }
+}
+
+async function handleLarkLogout(): Promise<{ success: boolean }> {
+  try {
+    // TODO: Integrate with clearTokens() from lark-api/auth.ts
+    return { success: true };
+  } catch {
+    return { success: false };
+  }
+}
