@@ -8,6 +8,24 @@ module.exports = {
     '^marked$': '<rootDir>/node_modules/marked/lib/marked.umd.js',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
+  transform: {
+    '^.+\\.ts$': [
+      'ts-jest',
+      {
+        tsconfig: {
+          target: 'ES2022',
+          module: 'ESNext',
+          moduleResolution: 'node',
+          lib: ['ES2022', 'DOM', 'DOM.Iterable'],
+          strict: true,
+          esModuleInterop: true,
+          skipLibCheck: true,
+          forceConsistentCasingInFileNames: true,
+          types: ['jest', 'chrome', 'node'],
+        },
+      },
+    ],
+  },
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',

@@ -10,6 +10,9 @@
  *    for conversion and clipboard write.
  */
 
+import { LarkClient } from '../lark-api/client.js';
+import { loadTokens, isTokenExpired, clearTokens } from '../lark-api/auth.js';
+
 // ---------------------------------------------------------------------------
 // Badge helpers
 // ---------------------------------------------------------------------------
@@ -112,6 +115,35 @@ async function handleConvertSelection(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Lark configuration helper
+// ---------------------------------------------------------------------------
+
+interface LarkSettings {
+  larkRegion: 'feishu' | 'larksuite';
+  larkAppId: string;
+}
+
+async function loadLarkSettings(): Promise<LarkSettings> {
+  return new Promise((resolve) => {
+    chrome.storage.sync.get(
+      { larkRegion: 'larksuite', larkAppId: '' },
+      (items) => {
+        resolve(items as unknown as LarkSettings);
+      },
+    );
+  });
+}
+
+function createLarkClient(settings: LarkSettings): LarkClient {
+  const extensionId = chrome.runtime.id;
+  return new LarkClient({
+    region: settings.larkRegion,
+    appId: settings.larkAppId,
+    redirectUri: `https://${extensionId}.chromiumapp.org/`,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Lark OAuth message handler
 // ---------------------------------------------------------------------------
 
@@ -123,13 +155,17 @@ async function handleConvertSelection(): Promise<void> {
 chrome.runtime.onMessage.addListener(
   (message: { type: string; [key: string]: unknown }, _sender, sendResponse) => {
     if (message.type === 'lark-auth-start') {
-      // Stub: will be connected to auth.ts launchAuthFlow
       void handleLarkAuth(message).then(sendResponse);
       return true; // Keep message channel open for async response
     }
 
     if (message.type === 'lark-auth-logout') {
       void handleLarkLogout().then(sendResponse);
+      return true;
+    }
+
+    if (message.type === 'lark-auth-check') {
+      void handleLarkAuthCheck().then(sendResponse);
       return true;
     }
 
@@ -141,11 +177,14 @@ async function handleLarkAuth(
   _message: { type: string; [key: string]: unknown },
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // TODO: Integrate with LarkClient.authenticate() from lark-api/auth.ts
-    // const config = await loadLarkConfig();
-    // const result = await launchAuthFlow(config);
-    // return { success: true };
-    return { success: false, error: 'Lark OAuth not yet implemented' };
+    const settings = await loadLarkSettings();
+    if (!settings.larkAppId) {
+      return { success: false, error: 'Lark App ID not configured. Go to Settings.' };
+    }
+
+    const client = createLarkClient(settings);
+    await client.authenticate();
+    return { success: true };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Authentication failed';
     return { success: false, error: msg };
@@ -154,9 +193,19 @@ async function handleLarkAuth(
 
 async function handleLarkLogout(): Promise<{ success: boolean }> {
   try {
-    // TODO: Integrate with clearTokens() from lark-api/auth.ts
+    await clearTokens();
     return { success: true };
   } catch {
     return { success: false };
+  }
+}
+
+async function handleLarkAuthCheck(): Promise<{ authenticated: boolean }> {
+  try {
+    const tokens = await loadTokens();
+    const authenticated = tokens !== null && !isTokenExpired(tokens);
+    return { authenticated };
+  } catch {
+    return { authenticated: false };
   }
 }

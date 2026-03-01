@@ -17,8 +17,12 @@ import type { HistoryEntry } from './history.js';
 import { loadSettings } from './storage.js';
 import { debounce, htmlToPlainText } from './utils.js';
 
-// Lark API imports (lazy loaded when needed)
-// These will be available once the lark-api module is built
+import { LarkClient } from '../lark-api/client.js';
+import { convertTokens } from '../lark-api/block-converter.js';
+import { createDocumentWithContent } from '../lark-api/document-service.js';
+import type { DocumentCreationProgress } from '../lark-api/document-service.js';
+import { loadTokens, isTokenExpired } from '../lark-api/auth.js';
+import { Lexer } from 'marked';
 
 // ---------------------------------------------------------------------------
 // DOM references
@@ -49,6 +53,35 @@ const larkAuthText = document.getElementById('lark-auth-text') as HTMLSpanElemen
 const larkAuthBtn = document.getElementById('lark-auth-btn') as HTMLButtonElement | null;
 const larkDocTitle = document.getElementById('lark-doc-title') as HTMLInputElement | null;
 const larkDocSettings = document.getElementById('lark-doc-settings') as HTMLDivElement | null;
+
+// ---------------------------------------------------------------------------
+// Lark client singleton
+// ---------------------------------------------------------------------------
+
+let larkClient: LarkClient | null = null;
+
+async function getLarkClient(): Promise<LarkClient> {
+  if (larkClient) return larkClient;
+
+  const settings = await loadSettings();
+  if (!settings.larkAppId) {
+    throw new Error('Lark App ID not configured. Go to Settings to set it up.');
+  }
+
+  const extensionId = chrome.runtime.id;
+  larkClient = new LarkClient({
+    region: settings.larkRegion,
+    appId: settings.larkAppId,
+    redirectUri: `https://${extensionId}.chromiumapp.org/`,
+  });
+
+  return larkClient;
+}
+
+/** Reset client when settings change (e.g., region or appId update). */
+function resetLarkClient(): void {
+  larkClient = null;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -479,10 +512,18 @@ function updateLarkAuthUI(isConnected: boolean): void {
   }
 }
 
+async function checkLarkAuthStatus(): Promise<void> {
+  try {
+    const tokens = await loadTokens();
+    const isConnected = tokens !== null && !isTokenExpired(tokens);
+    updateLarkAuthUI(isConnected);
+  } catch {
+    updateLarkAuthUI(false);
+  }
+}
+
 /**
- * Send Markdown content to Lark via API.
- * This is a stub that will be connected to the actual API client
- * once the lark-api module is integrated.
+ * Send Markdown content to Lark via the Lark DocX API.
  */
 async function handleSendToLark(): Promise<void> {
   if (!input) return;
@@ -500,28 +541,54 @@ async function handleSendToLark(): Promise<void> {
   }
 
   try {
-    showLarkProgress(10, 'Preparing document...');
+    const client = await getLarkClient();
 
-    // TODO: Integrate with LarkClient once lark-api module is built
-    // const client = await getLarkClient();
-    // const blocks = markdownToLarkBlocks(markdown);
-    // const title = larkDocTitle?.value || 'md2Lark Document';
-    // const result = await createDocumentWithContent(client, title, blocks, (progress) => {
-    //   const percent = Math.round((progress.current / progress.total) * 100);
-    //   showLarkProgress(percent, progress.message);
-    // });
-    // showStatus(`Document created! ${result.documentUrl}`, 'success', 5000);
+    // Check if authenticated
+    const isAuth = await client.isAuthenticated();
+    if (!isAuth) {
+      showStatus('Please connect to Lark first.', 'error');
+      return;
+    }
 
-    // Temporary stub: simulate progress
-    showLarkProgress(50, 'Creating document...');
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    showLarkProgress(5, 'Converting Markdown...');
+
+    // Convert Markdown to Lark blocks (using convertTokens to preserve table structures)
+    const tokens = Lexer.lex(markdown);
+    const { blocks, tableStructures } = convertTokens(tokens);
+
+    showLarkProgress(15, 'Creating document...');
+
+    // Create document with content
+    const title = larkDocTitle?.value?.trim() || 'md2Lark Document';
+    await createDocumentWithContent(
+      client,
+      title,
+      blocks,
+      (progress: DocumentCreationProgress) => {
+        const percent = 15 + Math.round((progress.current / Math.max(progress.total, 1)) * 80);
+        showLarkProgress(percent, progress.message);
+      },
+      tableStructures,
+    );
+
     showLarkProgress(100, 'Done!');
-    showStatus('Lark API integration coming soon!', 'success', 3000);
+
+    // Save to history
+    const rawHtml = markdownToLarkHtml(markdown, currentTemplateName);
+    const safeHtml = sanitizeHtml(rawHtml);
+    await addHistoryEntry(markdown, safeHtml);
+
+    showStatus('Document created!', 'success', 5000);
+
+    // Delay hiding progress to show 100%
+    setTimeout(() => {
+      hideLarkProgress();
+    }, 1500);
   } catch (err: unknown) {
+    hideLarkProgress();
     const message = err instanceof Error ? err.message : 'Failed to send to Lark.';
     showStatus(message, 'error', 4000);
   } finally {
-    hideLarkProgress();
     if (sendLarkBtn) {
       sendLarkBtn.disabled = false;
       sendLarkBtn.classList.remove('sending');
@@ -673,14 +740,42 @@ if (sendLarkBtn) {
 // Lark auth button
 if (larkAuthBtn) {
   larkAuthBtn.addEventListener('click', () => {
-    // TODO: Connect to LarkClient.authenticate() / logout()
     const isCurrentlyConnected = larkAuthText?.classList.contains('connected') ?? false;
     if (isCurrentlyConnected) {
-      updateLarkAuthUI(false);
-      showStatus('Disconnected from Lark', 'success');
+      // Disconnect
+      void (async () => {
+        try {
+          const client = await getLarkClient();
+          await client.logout();
+          updateLarkAuthUI(false);
+          showStatus('Disconnected from Lark', 'success');
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : 'Failed to disconnect';
+          showStatus(msg, 'error');
+        }
+      })();
     } else {
-      // Stub: show info message
-      showStatus('Lark OAuth connection coming soon!', 'success', 3000);
+      // Connect
+      void (async () => {
+        try {
+          larkAuthBtn.disabled = true;
+          larkAuthBtn.textContent = 'Connecting...';
+          const client = await getLarkClient();
+          await client.authenticate();
+          updateLarkAuthUI(true);
+          showStatus('Connected to Lark!', 'success');
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : 'Authentication failed';
+          showStatus(msg, 'error', 4000);
+        } finally {
+          larkAuthBtn.disabled = false;
+          if (larkAuthText?.classList.contains('connected')) {
+            larkAuthBtn.textContent = 'Disconnect';
+          } else {
+            larkAuthBtn.textContent = 'Connect';
+          }
+        }
+      })();
     }
   });
 }
@@ -697,11 +792,15 @@ if (input) {
 // Load settings on startup.
 void refreshSettings();
 
+// Check Lark auth status on startup
+void checkLarkAuthStatus();
+
 // Reload settings when storage changes (e.g., from options page).
 chrome.storage.onChanged.addListener((_changes, areaName) => {
   if (areaName === 'sync') {
     void refreshSettings();
-    // Re-render preview with new settings.
+    resetLarkClient(); // Reset Lark client when settings change
+    void checkLarkAuthStatus();
     debouncedRenderPreview();
   }
 });
