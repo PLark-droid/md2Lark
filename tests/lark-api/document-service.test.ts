@@ -425,4 +425,75 @@ describe('document-service', () => {
       expect(tablePhases.length).toBeGreaterThanOrEqual(1);
     });
   });
+
+  // -----------------------------------------------------------------------
+  // runWithConcurrency (via createTableBlock)
+  // -----------------------------------------------------------------------
+
+  describe('runWithConcurrency via createTableBlock', () => {
+    it('limits concurrent cell operations to 5 for 8 cells', async () => {
+      let maxConcurrent = 0;
+      let currentConcurrent = 0;
+      const request = jest.fn();
+
+      // Step 1: Create table block
+      request.mockResolvedValueOnce({
+        code: 0,
+        msg: 'ok',
+        data: {
+          children: [{ block_id: 'tbl_001', block_type: 31 }],
+        } satisfies CreateBlockResponse,
+      });
+
+      // Step 2: Get table block - return 8 cell IDs
+      request.mockResolvedValueOnce({
+        code: 0,
+        msg: 'ok',
+        data: {
+          block: {
+            block_id: 'tbl_001',
+            block_type: 31,
+            children: [
+              'cell_01', 'cell_02', 'cell_03', 'cell_04',
+              'cell_05', 'cell_06', 'cell_07', 'cell_08',
+            ],
+          },
+        } satisfies GetBlockResponse,
+      });
+
+      // Step 3: Cell content calls - track concurrency
+      request.mockImplementation(
+        (method: string, path: string): Promise<LarkApiResponse<unknown>> => {
+          if (method === 'POST' && path.includes('/children') && path.includes('cell_')) {
+            currentConcurrent++;
+            maxConcurrent = Math.max(maxConcurrent, currentConcurrent);
+            return new Promise((resolve) => {
+              setTimeout(() => {
+                currentConcurrent--;
+                resolve({
+                  code: 0,
+                  msg: 'ok',
+                  data: { children: [] },
+                });
+              }, 10);
+            });
+          }
+          return Promise.resolve({ code: 0, msg: 'ok', data: null });
+        },
+      );
+
+      const client: LarkClient = { request };
+      const tableBlock = makeTableBlock();
+      const cellContents: LarkBlock[][] = Array.from({ length: 8 }, (_, i) => [
+        makeTextBlock(`Cell ${i}`),
+      ]);
+
+      await createTableBlock(client, 'doc_1', 'root_1', tableBlock, cellContents);
+
+      // maxConcurrent should be at most 5 (TABLE_CELL_CONCURRENCY)
+      expect(maxConcurrent).toBeLessThanOrEqual(5);
+      // At least 2 should run concurrently for 8 cells
+      expect(maxConcurrent).toBeGreaterThanOrEqual(2);
+    });
+  });
 });

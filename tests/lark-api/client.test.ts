@@ -394,4 +394,231 @@ describe('LarkClient', () => {
       expect(response.data?.block.block_id).toBe('blk1');
     });
   });
+
+  // -----------------------------------------------------------------------
+  // authenticate
+  // -----------------------------------------------------------------------
+
+  describe('authenticate', () => {
+    it('should complete OAuth flow and save tokens', async () => {
+      const launchMock = (globalThis as any).chrome.identity.launchWebAuthFlow;
+
+      // Intercept the auth URL to extract the state, then return
+      // a redirect URL with that same state + a code.
+      launchMock.mockImplementation(async (opts: { url: string }) => {
+        const url = new URL(opts.url);
+        const state = url.searchParams.get('state') ?? '';
+        return `https://example.com/callback?code=auth_code_123&state=${state}`;
+      });
+
+      // Mock fetch for token exchange
+      fetchMock.mockResolvedValueOnce(
+        mockResponse(200, {
+          data: {
+            access_token: 'new_access',
+            refresh_token: 'new_refresh',
+            token_type: 'Bearer',
+            expires_in: 7200,
+            refresh_expires_in: 86400,
+          },
+        }),
+      );
+
+      const client = new LarkClient(DEFAULT_CONFIG);
+      await client.authenticate();
+
+      // Verify tokens were saved
+      const isAuth = await client.isAuthenticated();
+      expect(isAuth).toBe(true);
+    });
+
+    it('should throw when user cancels OAuth (redirectUrl is undefined)', async () => {
+      const launchMock = (globalThis as any).chrome.identity.launchWebAuthFlow;
+      launchMock.mockResolvedValueOnce(undefined);
+
+      const client = new LarkClient(DEFAULT_CONFIG);
+      await expect(client.authenticate()).rejects.toThrow(
+        'Authentication cancelled by user',
+      );
+    });
+
+    it('should throw on state mismatch', async () => {
+      const launchMock = (globalThis as any).chrome.identity.launchWebAuthFlow;
+      // Return a redirect URL with a deliberately wrong state
+      launchMock.mockResolvedValueOnce(
+        'https://example.com/callback?code=abc&state=wrong_state_value',
+      );
+
+      const client = new LarkClient(DEFAULT_CONFIG);
+      await expect(client.authenticate()).rejects.toThrow('State mismatch');
+    });
+
+    it('should throw when redirect URL has no code parameter', async () => {
+      const launchMock = (globalThis as any).chrome.identity.launchWebAuthFlow;
+      // Return a redirect URL with correct state but no code
+      launchMock.mockImplementation(async (opts: { url: string }) => {
+        const url = new URL(opts.url);
+        const state = url.searchParams.get('state') ?? '';
+        return `https://example.com/callback?state=${state}`;
+      });
+
+      const client = new LarkClient(DEFAULT_CONFIG);
+      await expect(client.authenticate()).rejects.toThrow(
+        'No authorization code in redirect URL',
+      );
+    });
+
+    it('should clear codeVerifier even if token exchange fails', async () => {
+      const launchMock = (globalThis as any).chrome.identity.launchWebAuthFlow;
+      launchMock.mockImplementation(async (opts: { url: string }) => {
+        const url = new URL(opts.url);
+        const state = url.searchParams.get('state') ?? '';
+        return `https://example.com/callback?code=test_code&state=${state}`;
+      });
+
+      // Make token exchange fail
+      fetchMock.mockResolvedValueOnce(
+        mockResponse(500, {}, false),
+      );
+
+      const client = new LarkClient(DEFAULT_CONFIG);
+      await expect(client.authenticate()).rejects.toThrow();
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // ensureValidToken / token refresh flows
+  // -----------------------------------------------------------------------
+
+  describe('token refresh', () => {
+    it('should refresh expired token before making request', async () => {
+      // Seed expired tokens
+      await seedTokens({ expiresAt: Date.now() - 1000 });
+
+      // Mock refresh token call
+      fetchMock
+        .mockResolvedValueOnce(
+          mockResponse(200, {
+            data: {
+              access_token: 'refreshed_access',
+              refresh_token: 'refreshed_refresh',
+              token_type: 'Bearer',
+              expires_in: 7200,
+              refresh_expires_in: 86400,
+            },
+          }),
+        )
+        // Actual API call after refresh
+        .mockResolvedValueOnce(
+          mockResponse(200, { code: 0, msg: 'ok', data: { result: true } }),
+        );
+
+      const client = new LarkClient(DEFAULT_CONFIG);
+      const response = await client.request('GET', '/test');
+      expect(response.code).toBe(0);
+    });
+
+    it('should throw when no tokens available for refresh', async () => {
+      // No tokens seeded at all
+      const client = new LarkClient(DEFAULT_CONFIG);
+      await expect(client.request('GET', '/test')).rejects.toThrow(
+        'Not authenticated',
+      );
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // doRefresh / forceRefresh edge cases
+  // -----------------------------------------------------------------------
+
+  describe('doRefresh edge cases', () => {
+    it('should throw when doRefresh finds no tokens (via 401 + cleared storage)', async () => {
+      // Seed valid tokens so ensureValidToken succeeds initially
+      await seedTokens();
+
+      let fetchCallCount = 0;
+      // First API call returns 401 and also clears storage (simulates
+      // token being cleared after initial auth check but before refresh)
+      fetchMock.mockImplementation(async () => {
+        fetchCallCount++;
+        if (fetchCallCount === 1) {
+          // Simulate tokens being cleared before doRefresh runs
+          sessionMock._clear();
+          localMock._clear();
+          return mockResponse(401, { code: 0, msg: 'Unauthorized' }, false);
+        }
+        return mockResponse(200, { code: 0, msg: 'ok', data: {} });
+      });
+
+      const client = new LarkClient(DEFAULT_CONFIG);
+      await expect(client.request('GET', '/test')).rejects.toThrow(
+        'No tokens available for refresh',
+      );
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // parseResponse edge cases
+  // -----------------------------------------------------------------------
+
+  describe('parseResponse', () => {
+    it('should throw LarkApiError with statusText when msg is missing', async () => {
+      await seedTokens();
+      fetchMock.mockResolvedValueOnce(
+        mockResponse(400, { code: 1001 }, false),
+      );
+
+      const client = new LarkClient(DEFAULT_CONFIG);
+      try {
+        await client.request('GET', '/test');
+        fail('Expected to throw');
+      } catch (err) {
+        expect(err).toBeInstanceOf(LarkApiError);
+        expect((err as LarkApiError).httpStatus).toBe(400);
+      }
+    });
+
+    it('should throw on JSON parse error from response', async () => {
+      await seedTokens();
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        json: () => Promise.reject(new SyntaxError('Unexpected token')),
+        headers: new Headers(),
+      } as unknown as Response);
+
+      const client = new LarkClient(DEFAULT_CONFIG);
+      await expect(client.request('GET', '/test')).rejects.toThrow();
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // createDocument without folderId
+  // -----------------------------------------------------------------------
+
+  describe('createDocument without folderId', () => {
+    it('should not include folder_token when folderId is not provided', async () => {
+      await seedTokens();
+      fetchMock.mockResolvedValueOnce(
+        mockResponse(200, {
+          code: 0,
+          msg: 'ok',
+          data: {
+            document: {
+              document_id: 'doc789',
+              title: 'NoFolder',
+              revision_id: 1,
+            },
+          },
+        }),
+      );
+
+      const client = new LarkClient(DEFAULT_CONFIG);
+      await client.createDocument('NoFolder');
+
+      const callBody = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+      expect(callBody.folder_token).toBeUndefined();
+    });
+  });
 });

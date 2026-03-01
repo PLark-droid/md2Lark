@@ -86,7 +86,15 @@ export function buildAuthorizationUrl(
 }
 
 /**
- * Validate that the received state matches the expected value.
+ * Validate that the received state matches the expected value using
+ * constant-time comparison to mitigate timing attacks.
+ *
+ * **Note on length check:** The early return on length mismatch does not
+ * leak meaningful timing information because {@link generateState} always
+ * produces a fixed-length output (Base64URL encoding of 32 random bytes,
+ * yielding exactly 43 characters). A length mismatch therefore indicates
+ * a malformed or absent state parameter, not a partial match.
+ *
  * @returns `true` when the values match.
  */
 export function validateState(expected: string, received: string): boolean {
@@ -152,6 +160,7 @@ export async function exchangeCodeForTokens(
     throw new LarkAuthError(response.status, 0, 'Token exchange returned no data');
   }
 
+  validateTokenResponse(data, 'Token exchange');
   return tokenResponseToStore(data);
 }
 
@@ -187,6 +196,7 @@ export async function refreshAccessToken(
     throw new LarkAuthError(response.status, 0, 'Token refresh returned no data');
   }
 
+  validateTokenResponse(data, 'Token refresh');
   return tokenResponseToStore(data);
 }
 
@@ -236,6 +246,20 @@ export async function clearTokens(): Promise<void> {
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Validate that a token response contains all required fields.
+ *
+ * @throws {LarkAuthError} if `access_token` or `refresh_token` is missing or empty.
+ */
+function validateTokenResponse(data: LarkTokenResponse, context: string): void {
+  if (!data.access_token) {
+    throw new LarkAuthError(0, 0, `${context}: missing access_token in response`);
+  }
+  if (!data.refresh_token) {
+    throw new LarkAuthError(0, 0, `${context}: missing refresh_token in response`);
+  }
+}
 
 function tokenResponseToStore(data: LarkTokenResponse): LarkTokenStore {
   const now = Date.now();

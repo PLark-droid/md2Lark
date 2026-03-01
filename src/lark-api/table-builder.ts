@@ -12,7 +12,7 @@
 
 import type { Tokens, Token } from 'marked';
 import type { LarkBlock, TextElement } from './types.js';
-import { parseInlineTokens } from './block-converter.js';
+import { parseInlineTokens } from './inline-parser.js';
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -190,26 +190,33 @@ export function buildCellContent(cell: Tokens.TableCell): LarkBlock[] {
 // ---------------------------------------------------------------------------
 
 /**
- * CJK Unicode ranges used for text width measurement.
- * Matches CJK Unified Ideographs, Extension A/B, Compatibility Ideographs,
- * Hiragana, Katakana, Hangul Syllables, and full-width characters.
- */
-const CJK_REGEX =
-  /[\u2E80-\u9FFF\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFFEF\u{20000}-\u{2FA1F}]/u;
-
-/**
  * Measure approximate pixel width of text for column sizing.
  *
- * CJK characters are counted as width 2 (they are typically double-width),
- * while ASCII / Latin characters are counted as width 1.
+ * Uses code-point direct comparison instead of regex for better performance.
+ * CJK and other East-Asian wide characters count as width 2,
+ * while ASCII / Latin characters count as width 1.
  *
  * @param text - Plain text content of a cell.
  * @returns Approximate width score.
  */
 function measureTextWidth(text: string): number {
   let width = 0;
-  for (const char of text) {
-    width += CJK_REGEX.test(char) ? 2 : 1;
+  for (const ch of text) {
+    const code = ch.codePointAt(0) ?? 0;
+    if (
+      (code >= 0x1100 && code <= 0x115f) ||   // Hangul Jamo
+      (code >= 0x2e80 && code <= 0x9fff) ||    // CJK Radicals Supplement .. CJK Unified Ideographs
+      (code >= 0xac00 && code <= 0xd7af) ||    // Hangul Syllables
+      (code >= 0xf900 && code <= 0xfaff) ||    // CJK Compatibility Ideographs
+      (code >= 0xfe10 && code <= 0xfe6f) ||    // CJK Compatibility Forms
+      (code >= 0xff01 && code <= 0xff60) ||    // Fullwidth Latin / Halfwidth CJK
+      (code >= 0xffe0 && code <= 0xffe6) ||    // Fullwidth Currency Symbols
+      (code >= 0x20000 && code <= 0x2fa1f)     // CJK Unified Ideographs Extension B+
+    ) {
+      width += 2;
+    } else {
+      width += 1;
+    }
   }
   // Scale to approximate pixel width (roughly 8px per unit).
   return width * 8;

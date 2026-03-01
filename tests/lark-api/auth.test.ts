@@ -11,15 +11,18 @@ import {
   base64UrlEncode,
   buildAuthorizationUrl,
   clearTokens,
+  exchangeCodeForTokens,
   generateCodeChallenge,
   generateCodeVerifier,
   generateState,
   isTokenExpired,
   loadTokens,
+  refreshAccessToken,
   saveTokens,
   validateState,
 } from '../../src/lark-api/auth.js';
 import type { LarkAuthConfig, LarkTokenStore } from '../../src/lark-api/types.js';
+import { LarkAuthError } from '../../src/lark-api/types.js';
 
 // ---------------------------------------------------------------------------
 // Polyfill globalThis.crypto for Node.js test environment
@@ -347,5 +350,322 @@ describe('clearTokens', () => {
 
     const loaded = await loadTokens();
     expect(loaded).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// exchangeCodeForTokens
+// ---------------------------------------------------------------------------
+
+describe('exchangeCodeForTokens', () => {
+  const mockFetch = jest.fn();
+
+  beforeEach(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).fetch = mockFetch;
+    mockFetch.mockReset();
+  });
+
+  afterEach(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (globalThis as any).fetch;
+  });
+
+  const larksuiteConfig: LarkAuthConfig = {
+    appId: 'cli_test',
+    redirectUri: 'https://example.com/cb',
+    region: 'larksuite',
+  };
+
+  const feishuConfig: LarkAuthConfig = {
+    appId: 'cli_test',
+    redirectUri: 'https://example.com/cb',
+    region: 'feishu',
+  };
+
+  it('should return a LarkTokenStore on success', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({
+        data: {
+          access_token: 'new_access',
+          refresh_token: 'new_refresh',
+          token_type: 'Bearer',
+          expires_in: 7200,
+          refresh_expires_in: 2592000,
+        },
+      }),
+    });
+
+    const store = await exchangeCodeForTokens(larksuiteConfig, 'auth_code', 'verifier');
+    expect(store.accessToken).toBe('new_access');
+    expect(store.refreshToken).toBe('new_refresh');
+    expect(store.expiresAt).toBeGreaterThan(Date.now());
+    expect(store.refreshExpiresAt).toBeGreaterThan(Date.now());
+  });
+
+  it('should use larksuite endpoint for larksuite region', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({
+        data: {
+          access_token: 'at',
+          refresh_token: 'rt',
+          token_type: 'Bearer',
+          expires_in: 7200,
+          refresh_expires_in: 2592000,
+        },
+      }),
+    });
+
+    await exchangeCodeForTokens(larksuiteConfig, 'code', 'verifier');
+    const url = mockFetch.mock.calls[0][0] as string;
+    expect(url).toContain('larksuite.com');
+  });
+
+  it('should use feishu endpoint for feishu region', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({
+        data: {
+          access_token: 'at',
+          refresh_token: 'rt',
+          token_type: 'Bearer',
+          expires_in: 7200,
+          refresh_expires_in: 2592000,
+        },
+      }),
+    });
+
+    await exchangeCodeForTokens(feishuConfig, 'code', 'verifier');
+    const url = mockFetch.mock.calls[0][0] as string;
+    expect(url).toContain('feishu.cn');
+  });
+
+  it('should throw LarkAuthError on HTTP error (400)', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      statusText: 'Bad Request',
+      json: async () => ({}),
+    });
+
+    await expect(
+      exchangeCodeForTokens(larksuiteConfig, 'bad_code', 'verifier'),
+    ).rejects.toThrow(LarkAuthError);
+  });
+
+  it('should throw LarkAuthError on HTTP error (500)', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
+      json: async () => ({}),
+    });
+
+    await expect(
+      exchangeCodeForTokens(larksuiteConfig, 'code', 'verifier'),
+    ).rejects.toThrow(LarkAuthError);
+  });
+
+  it('should throw LarkAuthError when response has no data', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({}),
+    });
+
+    await expect(
+      exchangeCodeForTokens(larksuiteConfig, 'code', 'verifier'),
+    ).rejects.toThrow('Token exchange returned no data');
+  });
+
+  it('should throw when access_token is missing in response data', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({
+        data: {
+          access_token: '',
+          refresh_token: 'rt',
+          token_type: 'Bearer',
+          expires_in: 7200,
+          refresh_expires_in: 2592000,
+        },
+      }),
+    });
+
+    await expect(
+      exchangeCodeForTokens(larksuiteConfig, 'code', 'verifier'),
+    ).rejects.toThrow('missing access_token');
+  });
+
+  it('should throw when refresh_token is missing in response data', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({
+        data: {
+          access_token: 'at',
+          refresh_token: '',
+          token_type: 'Bearer',
+          expires_in: 7200,
+          refresh_expires_in: 2592000,
+        },
+      }),
+    });
+
+    await expect(
+      exchangeCodeForTokens(larksuiteConfig, 'code', 'verifier'),
+    ).rejects.toThrow('missing refresh_token');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// refreshAccessToken
+// ---------------------------------------------------------------------------
+
+describe('refreshAccessToken', () => {
+  const mockFetch = jest.fn();
+
+  beforeEach(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).fetch = mockFetch;
+    mockFetch.mockReset();
+  });
+
+  afterEach(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (globalThis as any).fetch;
+  });
+
+  const config: LarkAuthConfig = {
+    appId: 'cli_test',
+    redirectUri: 'https://example.com/cb',
+    region: 'larksuite',
+  };
+
+  it('should return a new LarkTokenStore on success', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({
+        data: {
+          access_token: 'refreshed_access',
+          refresh_token: 'refreshed_refresh',
+          token_type: 'Bearer',
+          expires_in: 7200,
+          refresh_expires_in: 2592000,
+        },
+      }),
+    });
+
+    const store = await refreshAccessToken(config, 'old_refresh_token');
+    expect(store.accessToken).toBe('refreshed_access');
+    expect(store.refreshToken).toBe('refreshed_refresh');
+  });
+
+  it('should throw LarkAuthError when refresh fails with HTTP error', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      statusText: 'Unauthorized',
+      json: async () => ({}),
+    });
+
+    await expect(
+      refreshAccessToken(config, 'invalid_refresh_token'),
+    ).rejects.toThrow(LarkAuthError);
+  });
+
+  it('should throw LarkAuthError when response has no data', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({}),
+    });
+
+    await expect(
+      refreshAccessToken(config, 'refresh_token'),
+    ).rejects.toThrow('Token refresh returned no data');
+  });
+
+  it('should throw when access_token is missing in refresh response', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({
+        data: {
+          access_token: '',
+          refresh_token: 'rt',
+          token_type: 'Bearer',
+          expires_in: 7200,
+          refresh_expires_in: 2592000,
+        },
+      }),
+    });
+
+    await expect(
+      refreshAccessToken(config, 'old_rt'),
+    ).rejects.toThrow('missing access_token');
+  });
+
+  it('should throw when refresh_token is missing in refresh response', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({
+        data: {
+          access_token: 'at',
+          refresh_token: '',
+          token_type: 'Bearer',
+          expires_in: 7200,
+          refresh_expires_in: 2592000,
+        },
+      }),
+    });
+
+    await expect(
+      refreshAccessToken(config, 'old_rt'),
+    ).rejects.toThrow('missing refresh_token');
+  });
+
+  it('should send correct request body', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({
+        data: {
+          access_token: 'at',
+          refresh_token: 'rt',
+          token_type: 'Bearer',
+          expires_in: 7200,
+          refresh_expires_in: 2592000,
+        },
+      }),
+    });
+
+    await refreshAccessToken(config, 'my_refresh_token');
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const [, options] = mockFetch.mock.calls[0];
+    const body = JSON.parse(options.body as string);
+    expect(body.grant_type).toBe('refresh_token');
+    expect(body.refresh_token).toBe('my_refresh_token');
+    expect(body.app_id).toBe('cli_test');
   });
 });

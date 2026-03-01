@@ -74,11 +74,17 @@ describe('RateLimiter', () => {
 // ---------------------------------------------------------------------------
 
 describe('withRetry', () => {
+  let randomSpy: jest.SpyInstance;
+
   beforeEach(() => {
     jest.useFakeTimers();
+    // Mock Math.random to return 1.0 so jitter multiplier is always 1.0
+    // (0.5 + 1.0 * 0.5 = 1.0), making delay deterministic for testing.
+    randomSpy = jest.spyOn(Math, 'random').mockReturnValue(1.0);
   });
 
   afterEach(() => {
+    randomSpy.mockRestore();
     jest.useRealTimers();
   });
 
@@ -185,6 +191,25 @@ describe('withRetry', () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
+  it('should handle mixed 429 and 5xx errors in sequence', async () => {
+    jest.useRealTimers();
+    const fn = jest.fn()
+      .mockRejectedValueOnce(createHttpError(429))
+      .mockRejectedValueOnce(createHttpError(503))
+      .mockResolvedValue('recovered');
+
+    const result = await withRetry(fn, getStatus, {
+      maxRetries429: 4,
+      maxRetries5xx: 3,
+      baseDelay429Ms: 1,
+      baseDelay5xxMs: 1,
+    });
+
+    expect(result).toBe('recovered');
+    expect(fn).toHaveBeenCalledTimes(3);
+    jest.useFakeTimers();
+  });
+
   it('should use exponential backoff for 429 delays', async () => {
     const fn = jest.fn()
       .mockRejectedValueOnce(createHttpError(429))
@@ -211,5 +236,31 @@ describe('withRetry', () => {
     const result = await promise;
     expect(result).toBe('done');
     expect(fn).toHaveBeenCalledTimes(4);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RateLimiter with maxTokens=1
+// ---------------------------------------------------------------------------
+
+describe('RateLimiter with maxTokens=1', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('should work correctly with a single token', async () => {
+    const limiter = new RateLimiter(1, 500);
+    expect(limiter.availableTokens).toBe(1);
+
+    await limiter.acquire();
+    expect(limiter.availableTokens).toBe(0);
+
+    // After refill interval, should have 1 token again
+    jest.advanceTimersByTime(501);
+    expect(limiter.availableTokens).toBe(1);
   });
 });

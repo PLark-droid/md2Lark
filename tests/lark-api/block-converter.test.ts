@@ -319,6 +319,292 @@ describe('block-converter', () => {
   });
 
   // -----------------------------------------------------------------------
+  // br token
+  // -----------------------------------------------------------------------
+
+  describe('br token', () => {
+    it('converts line break into a newline TextElement', () => {
+      // Construct inline tokens directly: text + br + text
+      const tokens: Token[] = [
+        { type: 'text', raw: 'line1', text: 'line1' } as Token,
+        { type: 'br', raw: '\n' } as Token,
+        { type: 'text', raw: 'line2', text: 'line2' } as Token,
+      ];
+      const elements = parseInlineTokens(tokens);
+      expect(elements).toHaveLength(3);
+      expect(elements[0].text_run!.content).toBe('line1');
+      expect(elements[1].text_run!.content).toBe('\n');
+      expect(elements[2].text_run!.content).toBe('line2');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // escape token
+  // -----------------------------------------------------------------------
+
+  describe('escape token', () => {
+    it('converts escape token to plain text', () => {
+      const tokens: Token[] = [
+        { type: 'escape', raw: '\\*', text: '*' } as Token,
+      ];
+      const elements = parseInlineTokens(tokens);
+      expect(elements).toHaveLength(1);
+      expect(elements[0].text_run!.content).toBe('*');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // default (unknown) inline token
+  // -----------------------------------------------------------------------
+
+  describe('unknown inline token', () => {
+    it('renders unknown token using raw property as fallback', () => {
+      const tokens: Token[] = [
+        { type: 'html', raw: '<span>hi</span>' } as Token,
+      ];
+      const elements = parseInlineTokens(tokens);
+      expect(elements).toHaveLength(1);
+      expect(elements[0].text_run!.content).toBe('<span>hi</span>');
+    });
+
+    it('skips unknown token when raw is empty', () => {
+      const tokens: Token[] = [
+        { type: 'unknown_custom', raw: '' } as Token,
+      ];
+      const elements = parseInlineTokens(tokens);
+      expect(elements).toHaveLength(0);
+    });
+
+    it('skips unknown token when raw is undefined', () => {
+      const tokens: Token[] = [
+        { type: 'unknown_custom' } as Token,
+      ];
+      const elements = parseInlineTokens(tokens);
+      expect(elements).toHaveLength(0);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // default (unknown) top-level token
+  // -----------------------------------------------------------------------
+
+  describe('unknown top-level token', () => {
+    it('returns null for unrecognised token type', () => {
+      const result = convertToken({ type: 'html', raw: '<div/>' } as Token);
+      expect(result).toBeNull();
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // flattenInlineText branches (via link rendering)
+  // -----------------------------------------------------------------------
+
+  describe('flattenInlineText', () => {
+    it('extracts text from simple text tokens inside a link', () => {
+      // [hello](url) -- link text is plain text
+      const blocks = markdownToLarkBlocks('[hello](https://example.com)');
+      const elements = blocks[0].text!.elements;
+      expect(elements[0].text_run!.content).toBe('hello');
+    });
+
+    it('extracts text from strong tokens inside a link', () => {
+      // [**bold link**](url) -- link with nested strong
+      const blocks = markdownToLarkBlocks('[**bold link**](https://example.com)');
+      const elements = blocks[0].text!.elements;
+      expect(elements[0].text_run!.content).toBe('bold link');
+      expect(elements[0].text_run!.text_element_style?.link).toEqual({
+        url: 'https://example.com',
+      });
+    });
+
+    it('extracts text from em tokens inside a link', () => {
+      // [*italic link*](url) -- link with nested em
+      const blocks = markdownToLarkBlocks('[*italic link*](https://example.com)');
+      const elements = blocks[0].text!.elements;
+      expect(elements[0].text_run!.content).toBe('italic link');
+      expect(elements[0].text_run!.text_element_style?.link).toEqual({
+        url: 'https://example.com',
+      });
+    });
+
+    it('extracts text from codespan tokens inside a link', () => {
+      // [`code link`](url) -- link with nested codespan
+      const blocks = markdownToLarkBlocks('[`code link`](https://example.com)');
+      const elements = blocks[0].text!.elements;
+      expect(elements[0].text_run!.content).toBe('code link');
+    });
+
+    it('extracts text from del tokens inside a link', () => {
+      // [~~del link~~](url) -- link with nested del
+      const blocks = markdownToLarkBlocks('[~~del link~~](https://example.com)');
+      const elements = blocks[0].text!.elements;
+      expect(elements[0].text_run!.content).toBe('del link');
+    });
+
+    it('returns empty for tokens with no text property in flattenInlineText', () => {
+      // Use parseInlineTokens with a link token whose tokens array contains
+      // a token with no text, no tokens, no raw -- this tests the default
+      // branch in flattenInlineText.
+      const linkToken: Token = {
+        type: 'link',
+        raw: '[x](url)',
+        href: 'https://example.com',
+        text: 'x',
+        tokens: [
+          { type: 'text', raw: 'x', text: 'x' } as Token,
+        ],
+      } as Token;
+      const elements = parseInlineTokens([linkToken]);
+      expect(elements).toHaveLength(1);
+      expect(elements[0].text_run!.content).toBe('x');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // extractBlockquoteElements branches
+  // -----------------------------------------------------------------------
+
+  describe('extractBlockquoteElements', () => {
+    it('extracts text from paragraph tokens inside blockquote', () => {
+      // Standard blockquote: > content is a paragraph child
+      const blocks = markdownToLarkBlocks('> paragraph content');
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].block_type).toBe(14);
+      expect(blocks[0].quote!.elements[0].text_run!.content).toBe('paragraph content');
+    });
+
+    it('extracts text token content inside blockquote', () => {
+      // Simulate a blockquote with a direct text token child
+      const blockquoteToken: Token = {
+        type: 'blockquote',
+        raw: '> hello',
+        text: 'hello',
+        tokens: [
+          {
+            type: 'text',
+            raw: 'hello',
+            text: 'hello',
+          } as Token,
+        ],
+      } as Token;
+      const result = convertToken(blockquoteToken);
+      expect(result).not.toBeNull();
+      expect(result!.blocks[0].quote!.elements[0].text_run!.content).toBe('hello');
+    });
+
+    it('extracts text token with nested inline tokens inside blockquote', () => {
+      const blockquoteToken: Token = {
+        type: 'blockquote',
+        raw: '> **bold**',
+        text: '**bold**',
+        tokens: [
+          {
+            type: 'text',
+            raw: '**bold**',
+            text: 'bold',
+            tokens: [
+              {
+                type: 'strong',
+                raw: '**bold**',
+                text: 'bold',
+                tokens: [
+                  { type: 'text', raw: 'bold', text: 'bold' } as Token,
+                ],
+              } as Token,
+            ],
+          } as Token,
+        ],
+      } as Token;
+      const result = convertToken(blockquoteToken);
+      expect(result).not.toBeNull();
+      const elements = result!.blocks[0].quote!.elements;
+      expect(elements[0].text_run!.content).toBe('bold');
+      expect(elements[0].text_run!.text_element_style?.bold).toBe(true);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // extractListItemElements branches
+  // -----------------------------------------------------------------------
+
+  describe('extractListItemElements', () => {
+    it('extracts paragraph content from list items (loose lists)', () => {
+      // A loose list (items separated by blank lines) wraps items in paragraph tokens
+      const md = '- item 1\n\n- item 2\n';
+      const blocks = markdownToLarkBlocks(md);
+      expect(blocks.length).toBeGreaterThanOrEqual(2);
+      expect(blocks[0].block_type).toBe(12);
+      expect(blocks[0].bullet!.elements[0].text_run!.content).toBe('item 1');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Link with nested bold style
+  // -----------------------------------------------------------------------
+
+  describe('link with nested styles', () => {
+    it('preserves bold + link styles for [**bold link**](url)', () => {
+      const blocks = markdownToLarkBlocks('[**bold link**](https://example.com)');
+      const elements = blocks[0].text!.elements;
+      // flattenInlineText produces the text content for the link
+      expect(elements[0].text_run!.content).toBe('bold link');
+      expect(elements[0].text_run!.text_element_style?.link).toEqual({
+        url: 'https://example.com',
+      });
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // text token with nested tokens (line 92-93)
+  // -----------------------------------------------------------------------
+
+  describe('text token with nested tokens', () => {
+    it('recursively processes text tokens that have inner tokens', () => {
+      // A text token that has child tokens (e.g. from list item processing)
+      const tokens: Token[] = [
+        {
+          type: 'text',
+          raw: '**nested**',
+          text: '**nested**',
+          tokens: [
+            {
+              type: 'strong',
+              raw: '**nested**',
+              text: 'nested',
+              tokens: [
+                { type: 'text', raw: 'nested', text: 'nested' } as Token,
+              ],
+            } as Token,
+          ],
+        } as Token,
+      ];
+      const elements = parseInlineTokens(tokens);
+      expect(elements).toHaveLength(1);
+      expect(elements[0].text_run!.content).toBe('nested');
+      expect(elements[0].text_run!.text_element_style?.bold).toBe(true);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // convertTokens with table structures
+  // -----------------------------------------------------------------------
+
+  describe('convertTokens with table', () => {
+    it('collects tableStructures from table tokens', () => {
+      const tokens = Lexer.lex('| A | B |\n|---|---|\n| 1 | 2 |');
+      const result = convertTokens(tokens);
+      expect(result.tableStructures).toBeDefined();
+      expect(result.tableStructures!.length).toBe(1);
+    });
+
+    it('returns undefined tableStructures when no tables are present', () => {
+      const tokens = Lexer.lex('Hello world');
+      const result = convertTokens(tokens);
+      expect(result.tableStructures).toBeUndefined();
+    });
+  });
+
+  // -----------------------------------------------------------------------
   // getCodeLanguageId
   // -----------------------------------------------------------------------
 

@@ -39,6 +39,12 @@ export class RateLimiter {
       await this.sleep(waitMs);
     }
     this.refill();
+    // Guard against tokens still being zero or negative after refill
+    // (e.g. if refillIntervalMs has not fully elapsed due to timer jitter).
+    if (this.tokens <= 0) {
+      await this.sleep(this.refillIntervalMs);
+      this.refill();
+    }
     this.tokens--;
   }
 
@@ -113,14 +119,16 @@ export async function withRetry<T>(
       const status = getStatus(error);
 
       if (status === 429 && attempt429 < opts.maxRetries429) {
-        const delay = opts.baseDelay429Ms * Math.pow(2, attempt429);
+        const baseDelay = opts.baseDelay429Ms * Math.pow(2, attempt429);
+        const delay = baseDelay * (0.5 + Math.random() * 0.5);
         attempt429++;
         await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
       }
 
       if (status !== undefined && status >= 500 && attempt5xx < opts.maxRetries5xx) {
-        const delay = opts.baseDelay5xxMs * Math.pow(2, attempt5xx);
+        const baseDelay = opts.baseDelay5xxMs * Math.pow(2, attempt5xx);
+        const delay = baseDelay * (0.5 + Math.random() * 0.5);
         attempt5xx++;
         await new Promise((resolve) => setTimeout(resolve, delay));
         continue;

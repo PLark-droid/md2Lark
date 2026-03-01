@@ -89,7 +89,9 @@ export class LarkClient {
    * In a Chrome extension context this opens `chrome.identity.launchWebAuthFlow`.
    */
   async authenticate(): Promise<void> {
-    const codeVerifier = generateCodeVerifier();
+    // SECURITY: Use `let` so the code_verifier can be overwritten after use,
+    // reducing the window during which the secret resides in memory.
+    let codeVerifier: string | undefined = generateCodeVerifier();
     const codeChallenge = await generateCodeChallenge(codeVerifier);
     const state = generateState();
     const authUrl = buildAuthorizationUrl(this.config, codeChallenge, state);
@@ -100,22 +102,33 @@ export class LarkClient {
     });
 
     if (!redirectUrl) {
+      codeVerifier = undefined; // SECURITY: Clear on early exit
       throw new LarkAuthError(0, 0, 'Authentication cancelled by user');
     }
 
     const url = new URL(redirectUrl);
     const receivedState = url.searchParams.get('state') ?? '';
     if (!validateState(state, receivedState)) {
+      codeVerifier = undefined; // SECURITY: Clear on early exit
       throw new LarkAuthError(0, 0, 'State mismatch: possible CSRF attack');
     }
 
     const code = url.searchParams.get('code');
     if (!code) {
+      codeVerifier = undefined; // SECURITY: Clear on early exit
       throw new LarkAuthError(0, 0, 'No authorization code in redirect URL');
     }
 
-    const tokens = await exchangeCodeForTokens(this.config, code, codeVerifier);
-    await saveTokens(tokens);
+    try {
+      const tokens = await exchangeCodeForTokens(this.config, code, codeVerifier);
+      await saveTokens(tokens);
+    } finally {
+      // SECURITY: Overwrite the PKCE code_verifier immediately after the token
+      // exchange completes (or fails). JavaScript strings are immutable, so we
+      // cannot scrub the original buffer, but nullifying the reference allows
+      // the GC to collect it sooner and prevents accidental reuse.
+      codeVerifier = undefined;
+    }
   }
 
   /**
@@ -154,9 +167,8 @@ export class LarkClient {
     path: string,
     body?: unknown,
   ): Promise<LarkApiResponse<T>> {
-    await this.rateLimiter.acquire();
-
     const execute = async (): Promise<LarkApiResponse<T>> => {
+      await this.rateLimiter.acquire();
       const token = await this.ensureValidToken();
       const url = `${this.apiBase}${path}`;
 
@@ -226,7 +238,7 @@ export class LarkClient {
   ): Promise<LarkApiResponse<CreateBlockResponse>> {
     return this.request<CreateBlockResponse>(
       'POST',
-      `/docx/v1/documents/${docId}/blocks/${parentBlockId}/children`,
+      `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(parentBlockId)}/children`,
       { children: blocks },
     );
   }
@@ -240,7 +252,7 @@ export class LarkClient {
   ): Promise<LarkApiResponse<GetBlockResponse>> {
     return this.request<GetBlockResponse>(
       'GET',
-      `/docx/v1/documents/${docId}/blocks/${blockId}`,
+      `/docx/v1/documents/${encodeURIComponent(docId)}/blocks/${encodeURIComponent(blockId)}`,
     );
   }
 

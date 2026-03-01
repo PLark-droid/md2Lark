@@ -115,6 +115,7 @@ export interface LarkBlock {
   heading4?: { elements: TextElement[] };
   heading5?: { elements: TextElement[] };
   heading6?: { elements: TextElement[] };
+  heading7?: { elements: TextElement[] };
   bullet?: { elements: TextElement[] };
   ordered?: { elements: TextElement[] };
   quote?: { elements: TextElement[] };
